@@ -1,0 +1,230 @@
+---
+title: "pilot_analysis"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+editor: visual
+---
+
+# General analysis plan
+
+```{r}
+#| warning: false
+library(tidyverse)
+library(ggrepel)
+```
+
+##*ctrl+alt+i- code blocks
+#data_import
+```{r}
+#| warning: false
+data_categorization_roei <- read_csv("Data/data-task-ib3a_roei.csv", show_col_types = F)
+data_categorization_shani <- read_csv("Data/data-task-ib3a_shani1.csv", show_col_types = F)
+
+att_check_roei <- read_csv("Data/data-task-sfst_roei.csv", show_col_types = F)
+att_check_shani <- read_csv("Data/data-task-sfst_shani1.csv", show_col_types = F)
+```
+
+## helper function
+```{r}
+colnames_to_underscores <- function(data = NULL) {
+  dat <- data
+  names(dat) <- stringr::str_replace_all(names(dat), pattern = " ", replacement = "_")
+  return(dat)
+  }
+```
+
+# Binding
+```{r}
+att_check <- rbind(att_check_roei, att_check_shani) |>
+  colnames_to_underscores() |>
+  filter(str_detect(Zone_Type, pattern = "endValue")) |>
+  select(Participant_Private_ID, Response) |>
+  mutate(Participant_Private_ID = factor(Participant_Private_ID))
+
+failed_IDs <- att_check |>
+  filter(Response > 5) |>
+  select(Participant_Private_ID)
+```
+
+## Filtering P's - attention checks, outliers...
+
+### Attention check
+```{r}
+data_participants <- rbind(data_categorization_roei, data_categorization_shani) |>
+  colnames_to_underscores() |>
+  filter(!(Participant_Private_ID %in% failed_IDs$Participant_Private_ID))
+```
+
+### Outliers
+
+#### Cleaning data before filtering outliers
+
+```{r}
+data_participants <- data_participants |>
+  filter(display %in% c("task_Jewish", "task_Arab")) |> # removing instructions screens
+  filter(Zone_Type == "response_slider_endValue") |> # only subjects answers
+  select(Participant_Private_ID, Response, image, Reaction_Time, display) |>
+  mutate(Participant_Private_ID = factor(Participant_Private_ID),
+         image = factor(image),
+         display = factor(display))
+```
+
+#### Extreme SD or Mean
+
+```{r}
+participants_sd_mean <- data_participants |>
+  group_by(Participant_Private_ID, display) |>
+  mutate(participant_mean = mean(Response, na.rm = T),
+         participant_sd = sd(Response, na.rm = T)) |>
+  
+  filter(participant_sd <= mean(participant_sd, na.rm = T) + 2 * sd(participant_sd, na.rm = T) &
+         participant_sd >= mean(participant_sd, na.rm = T) - 2 * sd(participant_sd, na.rm = T)) |>
+  
+  filter(participant_mean <= mean(participant_mean, na.rm = T) + 2 * sd(participant_mean, na.rm = T) &
+         participant_mean >= mean(participant_mean, na.rm = T) - 2 * sd(participant_mean, na.rm = T))
+```
+
+## Main task
+
+## Difference of means
+```{r}
+data_images <- data |>
+  group_by(display, image) |>
+  mutate(per_condition_mean = mean(Response, na.rm = T)) |>
+  pivot_wider(names_from = display, values_from = per_condition_mean) |>
+  distinct(image, task_Jewish, task_Arab) |>
+  arrange(image) |>
+  mutate(task_Arab = lead(task_Arab)) |>
+  drop_na(task_Jewish, task_Arab) |>
+  mutate(diff_of_means = task_Jewish - task_Arab)
+
+data_images_big_diff <- data_images |>
+  filter(abs(diff_of_means) >= 10) |>
+  mutate(rated_ethnicity = case_when(diff_of_means < 0 ~ "Arab",
+                                     diff_of_means > 0 ~ "Jewish",
+                                     .default = NA))
+```
+
+
+## ggplot2
+```{r}
+plot <- data |>
+  group_by(display, image) |>
+  mutate(per_condition_mean = mean(Response, na.rm = T)) |>
+  filter(str_detect(image, pattern = "20")) |>
+  ggplot(aes(x = display, y = Response)) +
+  geom_point() +
+  geom_point(aes(y = per_condition_mean, color = "red"), show.legend = F) +
+  facet_wrap(~image, scales = "fixed") +
+  scale_y_continuous(labels = seq(0, 100, 10), breaks = seq(0, 100, 10)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
+  theme_classic()
+
+plot
+```
+
+# Participants ratings
+
+```{r}
+plot2 <- data_participants |>
+  group_by(Participant_Private_ID, display) |>
+  mutate(participant_mean = mean(Response, na.rm = T)) |>
+  ggplot(aes(x = display, y = Response)) +
+  geom_point() +
+  geom_point(aes(y = participant_mean, color = "red"), show.legend = F) +
+ # geom_label_repel(aes(y = participant_mean, label = participant_mean)) +
+  facet_wrap(~Participant_Private_ID) +
+  scale_x_discrete(labels = c("Arab", "Jewish")) +
+  scale_y_continuous(breaks = seq(0, 100, 10), labels = seq(0, 100, 10)) +
+  labs(x = "") +
+  theme_classic()
+
+plot2
+```
+
+```{r}
+#| echo: false
+#| eval: false
+ggsave("plot.png", plot = plot2, path = "../Plots/", width = 1400, height = 1300, units = "px")
+```
+
+
+# Demographics
+
+```{r}
+data_demo_roei <- read_csv("../Data/data-questionnaire-jj6n_roei.csv", show_col_types = F)
+data_demo_shani <- read_csv("../Data/data-questionnaire-jj6n_shani1.csv", show_col_types = F)
+
+data_demo <- rbind(data_demo_roei, data_demo_shani) |>
+  colnames_to_underscores() |>
+  filter(!(Question_Key %in% c("BEGIN QUESTIONNAIRE", "END QUESTIONNAIRE"))) |>
+  filter(Event_Index != "END OF FILE") |>
+  select(Participant_Private_ID, Question_Key, Response) |>
+  pivot_wider(names_from = Question_Key, values_from = Response)
+```
+
+## Recode data
+
+```{r}
+demo_wide_clean <- data_demo |>
+  mutate(gender = case_when(`gender-quantised` == "1" ~ "man",
+                            `gender-quantised` == "2" ~ "woman")) |>
+  select(-`gender-quantised`, -`gender-quantised`, -`gender-text`, -`ethnic-text`, -`religiosity-quantised`, -`scale_of_SES-quantised`, -`age-quantised`) |>
+  mutate(Participant_Private_ID = factor(Participant_Private_ID),
+         age = as.numeric(age),
+         children = as.numeric(children),
+         scale_of_SES = as.numeric(scale_of_SES))
+```
+
+## Rename columns
+
+```{r}
+demo_wide_clean <- demo_wide_clean |>
+  rename(ethnic = `ethnic-1`, SES = scale_of_SES, comment = `response-7`, ethnic2 = `ethnic-4`)
+```
+
+## Plots
+
+### Age
+
+```{r}
+ggplot(demo_wide_clean, aes(x = age)) +
+  geom_histogram(bins = 50) +
+  scale_x_continuous(breaks = seq(17, 71, 2)) +
+  theme_classic()
+```
+
+### Gender
+
+```{r}
+ggplot(demo_wide_clean, aes(x = gender)) +
+  geom_histogram(stat = "count") +
+  scale_y_continuous(breaks = seq(0, 200, 10)) +
+  theme_classic()
+```
+
+## SES
+```{r}
+ggplot(drop_na(demo_wide_clean, SES), aes(x = SES)) +
+  geom_histogram(stat = "count", binwidth = 1) +
+  stat_bin(binwidth = 1, geom = 'text', color = 'white', aes(label = after_stat(count)),
+           position = position_stack(vjust = 0.5)) +
+  scale_x_continuous(breaks = c(1:10)) +
+  scale_y_continuous(breaks = seq(0, 160, 10)) +
+  labs(title = "On a scale of 1-10 how would you rate your Social-Economic status?",
+       subtitle = "1 = Lowest status, 10 = Highest status",
+       y = "Number of participants",
+       x = "") +
+  theme_classic() +
+  theme(plot.title = element_text(family = "serif", hjust = 0.5, size = 16),
+        plot.subtitle = element_text(family = "serif", hjust = 0.5, size = 10))
+```
+
+
+
+
+
+
+
