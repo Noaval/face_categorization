@@ -1,0 +1,77 @@
+library(dplyr)
+library(readr)
+library(readr)
+library(dplyr)
+
+# Specify the path to the directory containing the CSV files
+path_to_csv_files <- "path_to_your_csv_files"
+
+# List all CSV files in the directory
+csv_files <- list.files(path = path_to_csv_files, pattern = "\\.csv$", full.names = TRUE)
+
+# Function to read each CSV file and return its content
+read_csv_file <- function(file_path) {
+  read_csv(file_path)
+}
+
+# Read and merge all CSV files
+merged_data <- csv_files %>% 
+  lapply(read_csv_file) %>% 
+  bind_rows()
+
+# Save the merged data to a new CSV file
+write_csv(merged_data, "merged_assignment_data.csv")
+
+# Optionally, print the merged data frame to check
+print(merged_data)
+
+
+# Function to read and preprocess individual files
+preprocess_file <- function(file_path) {
+  data <- read_csv(file_path)
+  # Filter only the rows with response_slider_endValue
+  filtered_data <- data %>%
+    filter(name == "response_slider_endValue") %>%
+    select(subject_number, image_name, rating = value, task_type)
+  return(filtered_data)
+}
+
+# Paths to your CSV files - replace with your actual file paths
+demographic_files <- list.files(path = "path_to_demographic_data", full.names = TRUE)
+rating_files <- list.files(path = "path_to_rating_data", full.names = TRUE)
+
+# Reading and merging demographic data
+demographic_data <- map_df(demographic_files, read_csv)
+
+# Reading, preprocessing, and merging rating data
+rating_data <- map_df(rating_files, preprocess_file)
+
+# Merging rating data with demographic data
+combined_data <- left_join(rating_data, demographic_data, by = "subject_number")
+
+# Calculate distribution for each image and task type
+distribution_data <- combined_data %>%
+  group_by(image_name, task_type) %>%
+  summarise(mean_rating = mean(rating), sd_rating = sd(rating))
+
+# Optionally, save the result to a new CSV file
+write_csv(distribution_data, "distribution_data.csv")
+
+# Print the distribution data for review
+print(distribution_data)
+
+
+
+
+#In this script:
+  
+#Replace "path_to_demographic_data" and "path_to_rating_data" with the actual paths to your CSV files.
+#The preprocess_file function reads each rating file, filters the relevant rows, and selects the necessary columns.
+#The script merges the demographic data and the preprocessed rating data.
+#It then calculates the mean and standard deviation of the ratings for each image and task type.
+#You may need to adjust the script based on the exact structure of your CSV files and the specific requirements of your analysis.
+
+
+
+
+

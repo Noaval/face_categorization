@@ -1,0 +1,48 @@
+library(dplyr)
+
+data_raw <- read.csv(file.choose(),header=TRUE)
+
+#1. Create Group variable
+data_raw <- data_raw |> 
+  mutate(Group = ifelse(sID < 34, 0, 1))
+
+#2. Remove first block 
+data_raw <- data_raw %>% 
+  filter(block != 1)
+
+#3. Remove trials after error
+data_raw <- data_raw %>%
+  group_by(sID) %>%
+  filter(!lag(acc == 0))
+
+#4. Remove error trials 
+data_raw <- data_raw %>% 
+  filter(acc != 0)
+
+#5. Remove outlier RTs
+data_raw57ie <- data_raw %>%
+  group_by(sID, finger) %>%
+  filter(between(RT, mean(RT) - 2*sd(RT), mean(RT) + 2*sd(RT)))
+
+#6. Create vib_strength
+data_raw <- data_raw %>%
+  mutate(vib_strength = sample(c(0.3, 1), nrow(data_raw), replace = T))
+
+#7. Pipe version
+data_raw <- data_raw %>% 
+  mutate(Group = ifelse(sID < 34, 0, 1)) %>%
+  filter(block != 1) %>%
+  group_by(sID) %>%
+  filter(!lag(acc == 0)) %>%
+  filter(acc != 0) %>%
+  group_by(sID, finger) %>%
+  filter(between(RT, mean(RT) - 2*sd(RT), mean(RT) + 2*sd(RT))) %>%
+  mutate(vib_strength = sample(c(0.3, 1), nrow(data_raw), replace = T))
+
+#8. Save output
+saveRDS(data_raw, "data_raw.rds") 
+write.csv(data_raw, "data_raw.csv")
+
+#9. Rewrite ugly code 
+diff(range(sample(head(iris[[1]], n = 10), size = 5, replace = TRUE))) %>%
+  {diff(range(.))}

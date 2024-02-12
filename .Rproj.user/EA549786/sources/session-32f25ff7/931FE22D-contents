@@ -1,0 +1,133 @@
+install.packages("mpt")
+
+library(mpt)
+
+par(mar = rep(2, 4))
+
+
+
+#TASK SWITCHING EXAMPLE
+
+# in treeid, each tree sums up to 1.  in this case there are 4
+# trees.  2 for switch (cong and incong) and 2 for repeat
+
+SWITCHMPT<-read.csv(file.choose(),header=TRUE)
+
+specSW<-mptspec(
+  t1*r+(1-t1)*i,
+  t1*(1-r)+(1-t1)*(1-i),
+  t1*r+(1-t1)*(1-i),
+  t1*(1-r)+(1-t1)*i,
+  t2*r+(1-t2)*i,           #note that everything duplicates to match n-categories
+  t2*(1-r)+(1-t2)*(1-i),
+  t2*r+(1-t2)*(1-i),
+  t2*(1-r)+(1-t2)*i
+  )
+
+specSW_T<-mptspec(
+  t*r+(1-t)*i,
+  t*(1-r)+(1-t)*(1-i),
+  t*r+(1-t)*(1-i),
+  t*(1-r)+(1-t)*i,
+  t*r+(1-t)*i,           #note that everything duplicates to match n-categories
+  t*(1-r)+(1-t)*(1-i),
+  t*r+(1-t)*(1-i),
+  t*(1-r)+(1-t)*i
+)
+
+specSW_RI<-mptspec(
+  t*ri+(1-t)*ri,
+  t*(1-ri)+(1-t)*(1-ri),
+  t*ri+(1-t)*(1-ri),
+  t*(1-ri)+(1-t)*ri,
+  t*ri+(1-t)*ri,           #note that everything duplicates to match n-categories
+  t*(1-ri)+(1-t)*(1-ri),
+  t*ri+(1-t)*(1-ri),
+  t*(1-ri)+(1-t)*ri
+)
+bspecSW_TRI<-mptspec(
+  t1*ri+(1-t1)*ri,
+  t1*(1-ri)+(1-t1)*(1-ri),
+  t1*ri+(1-t1)*(1-ri),
+  t1*(1-ri)+(1-t1)*ri,
+  t2*ri+(1-t2)*ri,           #note that everything duplicates to match n-categories
+  t2*(1-ri)+(1-t2)*(1-ri),
+  t2*ri+(1-t2)*(1-ri),
+  t2*(1-ri)+(1-t2)*ri
+)
+
+# starting values
+lower=c(.51,.51,.51)
+upper=c(.99,.99,.99)
+
+s<-runif(2,lower,upper)
+
+# runs the analysis and creates an object (mm1) on which several 
+# methods then apply (appear after)
+#update(specSW,.restr=list(r=i))
+
+mm<-mpt(specSW_RI,SWITCHMPT,start=s)
+
+# MANUAL COMPUTATION FOR BIC
+-2*mm$loglik+log(400)*2
+# OR
+BIC(mm)
+
+# running this time without updating the model (no constraints)
+# RI
+
+mm1<-mpt(specSW_RI, SWITCHMPT, start=s)
+summary(mm1)
+BIC(mm1)
+# T
+s1<-c(.9,.9,.9)
+mm2<-mpt(specSW_T, SWITCHMPT, start=s)
+summary(mm2)
+BIC(mm2)
+
+# TRI
+botval<-c(.11,.11,.11)
+topval<-c(.99,.99,.99)
+s3<-runif(3,botval,topval)
+#s3<-c(.9,.9,.9)
+
+mm3<-mpt(specSW_TRI, SWITCHMPT, start=s1)
+mm3$loglik
+summary(mm3)
+BIC(mm3)
+
+#these are the methods
+summary(mm)
+plot(mm)
+confint(mm)
+coef(mm)
+logLik(mm)
+BIC(mm)
+nobs(mm)
+
+#######################################
+#  ADDITIONAL EXAMPLES
+
+data(retroact)
+data("proact")
+# EXAMPLES DIRECTLY FROM THE PACKAGE
+spec <- mptspec(
+  p1*q1*r1,
+  p1*q1*(1 - r1),
+  p1*(1 - q1)*r1,
+  (1 - p1) + p1*(1 - q1)*(1 - r1),
+  p2*q2*r2,
+  p2*q2*(1 - r2),
+  p2*(1 - q2)*r2,
+  (1 - p2) + p2*(1 - q2)*(1 - r2),
+  p3*q3*r3,
+  p3*q3*(1 - r3),
+  p3*(1 - q3)*r3,
+  (1 - p3) + p3*(1 - q3)*(1 - r3)
+)
+mpt1 <- mpt(update(spec, .restr = list(p2 = p1, p3 = p1)),
+            proact[proact$test == 1, ])
+
+
+
+

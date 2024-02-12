@@ -1,0 +1,5 @@
+"0","data_demo_shani <- read_csv(""../Data/data-questionnaire-jj6n_shani1.csv"", show_col_types = F)
+"
+"2","Warning: [38;5;232mOne or more parsing issues, call `problems()` on your data frame for details, e.g.:
+  dat <- vroom(...)
+  problems(dat)[39m"

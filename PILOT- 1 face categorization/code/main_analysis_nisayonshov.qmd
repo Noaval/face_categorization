@@ -1,0 +1,118 @@
+---
+title: "main_analysis_arrange"
+format: html
+editor: visual
+execute: 
+  warning: false
+  message: false
+  cache: false
+  code-fold: True
+ format:
+   html:
+     embed-resources: true
+     toc: true
+     toc_float: true
+     toc-depth: 3
+ editor: visual
+ 
+
+---
+
+---
+
+# *General analysis plan*
+
+1.  *Data importation and initial preparation*-
+
+-   Import datasets related to the main task, attention checks, and demographics.
+-   Utilize the provided helper function colnames_to_underscores to standardize column names by replacing spaces and special characters with underscores.
+
+2.  *Attention Check and Participant Filtering:*
+
+-   Apply column name standardization.
+-   Identify and exclude participants who failed the attention checks based on their responses.
+-   Merge task-related data from different datasets and filter out participants who failed the attention checks.
+
+3.*Outlier Detection and Data Cleaning:*
+
+-   Further clean the task-related data by focusing on specific tasks and response types.
+-   Identify and exclude outliers based on extreme standard deviations or mean responses per participant and per display type.
+
+4.  ***Main Task Analysis:***
+
+-   Analyze the main task by calculating and comparing mean responses for different image categories.
+-   Identify significant differences in means and categorize images based on these differences.
+
+5.  *Visualization with ggplot2:*
+
+-   Create and save plots visualizing the data, focusing on individual participant responses and overall trends.
+-   Visualize participant mean responses and other pertinent aspects using ggplot2.
+
+6.  *Demographic Data Handling and Analysis:*
+
+-   Import and clean demographic data.
+-   Perform necessary transformations and renamings of demographic variables.
+-   Generate summary statistics and visualizations for demographic variables such as age, gender, religiosity, education, and socio-economic status.
+
+7.  *Statistical Analysis:*
+
+-   Utilize the get_summary_stats function to produce summary statistics for various cleaned and transformed datasets.
+-   Analyze the demographics data, focusing on age, gender, religiosity, education, and socio-economic status, and visualize these using ggplot2.
+
+```{r knitr_init, include=FALSE, echo=FALSE, cache=FALSE, warning=FALSE}
+#| warning: false
+library(tidyverse)
+library(ggrepel)
+library(reticulate)
+library(readr)
+
+
+```
+
+
+```{r knitr_init, include=FALSE, echo=FALSE, cache=FALSE, warning=FALSE}
+
+## Global options
+knitr::opts_chunk$set(echo=TRUE, 
+	             cache=TRUE, 
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               include=TRUE,
+               warning=FALSE)
+opts_knit$set(width=75)
+options(max.print="275")
+options(width = 1200)
+options(scipen = 100)
+
+```
+
+```
+
+
+## Data importation and initial preparation
+
+### helper function's
+
+#### standardize column names
+
+
+
+```{r}
+
+colnames_to_underscores <- function(data = NULL) {
+  dat <- data
+  names(dat) <- stringr::str_replace_all(names(dat), pattern = " ", replacement = "_")
+  return(dat)
+  }
+```
+
+#### get_summary_stats_function
+
+```{r}
+get_summary_stats <- function(demo_wide_clean) {
+  summary_stats <- summary(demo_wide_clean)
+  return(summary_stats)
+}
+```

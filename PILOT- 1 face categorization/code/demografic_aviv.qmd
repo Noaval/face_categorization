@@ -1,0 +1,78 @@
+---
+title: "aviv_drmografics"
+format: html
+editor: visual
+---
+
+#demografics_aviv
+```{r}
+# Demographic Questionnaire -----------------------------------------------
+data_demo_roei <- read_csv("../Data/data-questionnaire-jj6n_roei.csv", show_col_types = F)
+data_demo_shani <- read_csv("../Data/data-questionnaire-jj6n_shani1.csv", show_col_types = F)
+data_demo_noa <- read_csv("../Data/data-questionnaire-jj6n_noa.csv", show_col_types = F)
+
+file_name <- list.files()[str_sub(list.files(),-8,-1) == "fesr.csv"]
+demog <- read.csv( header=TRUE,file_name) # load file that ends with 64yc
+keep_cols_demog <- grep("Participant.Public.ID|Question.Key|Response", colnames(demog),
+                      value = TRUE)
+demog_clean <- subset(demog, select = keep_cols_demog)
+demog_clean <- filter(demog_clean, str_sub(demog_clean$Question.Key,-4,-1) != "text")
+demog_clean <- filter(demog_clean, demog_clean$Response != "")
+demog_clean$Response[substring(demog_clean$Question.Key, 1, 6) == 'ethnic'] <- substring(demog_clean$Question.Key[substring(demog_clean$Question.Key, 1, 6) == 'ethnic'],8,8)
+demog_clean <- filter(demog_clean, demog_clean$Question.Key != "END QUESTIONNAIRE")
+demog_clean <- filter(demog_clean, str_sub(demog_clean$Question.Key,-9,-1) != "quantised")
+demog_final <- reshape(demog_clean, idvar = c("Participant.Public.ID"), timevar = "Question.Key", direction = "wide")
+for (i in 1:ncol(demog_final)){
+  if (substr(names(demog_final)[i],1,8) == "Response"){
+    names(demog_final)[i] <- substring(names(demog_final)[i],10)    #orginize the colnames on demog
+  }
+}
+1:07
+#All Participants
+Age_stats <- get_summary_stats(as.data.frame(as.numeric(demog_final$Age)))
+male_per <- sum(demog_final$gender == "גבר")/nrow(demog_final)
+female_per <- sum(demog_final$gender == "אישה")/nrow(demog_final)
+a_baniari_per <- sum(demog_final$gender == "לא בינארי")/nrow(demog_final)
+religiosity_stats <- get_summary_stats(as.data.frame(as.numeric(demog_final$religiosity)))
+SES_stats <- get_summary_stats(as.data.frame(as.numeric(demog_final$scale_of_SES)))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).

@@ -1,0 +1,15 @@
+"0","ggplot(drop_na(demo_wide_clean, SES), aes(x = SES)) +
+  geom_histogram(stat = ""count"", binwidth = 1) +
+  stat_bin(binwidth = 1, geom = 'text', color = 'white', aes(label = after_stat(count)),
+           position = position_stack(vjust = 0.5)) +
+  scale_x_continuous(breaks = c(1:10)) +
+  scale_y_continuous(breaks = seq(0, 160, 10)) +
+  labs(title = ""On a scale of 1-10 how would you rate your Social-Economic status?"",
+       subtitle = ""1 = Lowest status, 10 = Highest status"",
+       y = ""Number of participants"",
+       x = """") +
+  theme_classic() +
+  theme(plot.title = element_text(family = ""serif"", hjust = 0.5, size = 16),
+        plot.subtitle = element_text(family = ""serif"", hjust = 0.5, size = 10))
+"
+"2","Warning: [38;5;232mIgnoring unknown parameters: `binwidth`, `bins`, and `pad`[39m"

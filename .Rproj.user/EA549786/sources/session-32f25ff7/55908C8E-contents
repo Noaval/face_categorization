@@ -1,0 +1,35 @@
+###first exercise in Advanced Research Methods for Psychologists ####
+###question number 1###
+set.seed(4)
+x <- sample(seq(1, 8, length.out = 25), 10000, replace = TRUE) %%7
+
+##explanation##
+##set.seed(4)- random number generation and ensure it will be the same every time we'll run it.##
+##X is a sample of 10000 values from a 25 sequence numbers from 1-8 with replacement##
+## %%7- returns the reminder when each element of the vector is devided by 7##
+
+####question number 2- creates an object that counts how many time X = 2.75##
+count_275 <- sum(x == 2.75)
+count_275
+####question number 3- creates an object that returns the 102nd number in the vector X####
+value_102 <- x[102]
+value_102
+####question number 4- creates a list of 3 string elements ####
+my_list <- list(
+  name = "Noa",
+  number_of_cousins = "5",
+  neighbors = c("Bar", "Yehonatan")
+)
+my_list
+
+####question number 5####
+nisayon <- tail(head(c(2,3,4,5,6,7)[2:6][1:4], n = 3), n = 2)[4]
+nisayon
+
+###Explanation###
+##c(2,3,4,5,6,7)- creates a vector containing those numbers#
+##[2:6]- selects the numbers from the 2nd and the 6th numbers-> (3,4,5,6,7)#
+##[1:4]- narrows the selection to the first 4 elements (3,4,5,6)#
+##head(...,n=3)- takes the first 3 elements in the limited vector-> (3,4,5)#
+##tail(..., n=2)- from the above 3 elements takes the last 2-> (4,5)
+##[4]- Requests the  4th element in the vector and returns NA because there are only 2 elements##
