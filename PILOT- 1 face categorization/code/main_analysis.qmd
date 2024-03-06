@@ -60,7 +60,7 @@ get_summary_stats <- function(demo_wide_clean) {
 
 ### Data Importation and Initial Preparation:
 
--   Import datasets related to the main task, attention checks, and demographics.
+Import data sets related to the main task, attention checks, and demographics.
 
 ```{r}
 #| code-fold: true
@@ -100,6 +100,8 @@ att_check <- rbind(att_check_roei, att_check_shani, att_check_noa)|>
 
 ### Identify and exclude participants who failed the attention checks
 
+Identifying who failed the attention checks (answer \> 5)
+
 ```{r}
 #| code-fold: true
 
@@ -112,8 +114,8 @@ failed_IDs <- att_check |>
 
 ### Cleaning data before filtering outliers
 
--   Identify and exclude participants who failed the attention checks based on their responses.
--   Merge task-related data from different datasets and filter out participants who failed the attention checks.
+-   Merge task-related data from different data- sets and filter out participants who failed the attention checks.
+-   Organizing the primary data for participants, including labeling and introducing a column to denote the order of conditions.
 
 ```{r}
 #| code-fold: true
@@ -136,8 +138,6 @@ data_participants <- rbind(data_categorization_roei,data_categorization_shani,
   )) |>
   rename(order_of_conditions = Task_Name)
 ```
-
--   Organizing the primary data for participants, including labeling and introducing a column to denote the order of conditions.
 
 #### visualizing responses by display
 
@@ -165,9 +165,12 @@ print(density_plot2)
 
 ### Detecting outlires
 
--   Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
+Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
 
-First option to pbtain the MAD MEDIAN ROLE for detecting outlires https://rdrr.io/cran/Routliers/man/outliers_mad.html
+First option to pbtain the MAD MEDIAN ROLE for detecting outlires [link](https://rdrr.io/cran/Routliers/man/outliers_mad.html).
+
+-   b is a scaling factor for the MAD to make it consistent for the normal distribution (the default is 1.4826
+-   threshold is the cutoff value above which values are considered outliers (default is 3)
 
 ```{r}
 #| code-fold: true
@@ -183,20 +186,17 @@ outliers_mad <- function(x, b = 1.4826, threshold = 3, na.rm = TRUE) {
   deviation <- abs(x - median_value) / mad_value
   return(deviation > threshold)
 }
-# Your dataset after preparing and filtering (e.g., data_participants)
 data_participants <- data_participants |>
   mutate(is_outlier = ifelse(outliers_mad(Response, b = 1.4826, threshold = 3, na.rm = TRUE), 1, 0))
 
-# To filter out outliers directly
+# filter out outliers directly
 data_cleaned <- data_participants %>% filter(is_outlier == 0)
 
 # If you want to analyze a specific column and store results
 response_outliers <- outliers_mad(data_participants$Response, b = 1.4826, threshold = 3, na.rm = TRUE)
 ```
 
--   Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion)
-
-https://statsandr.com/blog/outliers-detection-in-r/
+Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
 
 ```{r}
 #| code-fold: true
@@ -208,19 +208,31 @@ threshold <- 2.24
 median_response <- median(data_participants$Response, na.rm = TRUE)
 mad_response <- mad(data_participants$Response, constant = 1, na.rm = TRUE)
 
-# Define lower and upper bounds for outliers
 lower_bound <- median_response - threshold * mad_response
 upper_bound <- median_response + threshold * mad_response
 
-# Identify indices of outliers
 outlier_indices <- which(data_participants$Response < lower_bound | data_participants$Response > upper_bound)
 
-# Optionally, create a new column to flag outliers
+
 data_participants$is_outlier <- ifelse(data_participants$Response < lower_bound | data_participants$Response > upper_bound, 1, 0)
 
-# To view or remove outliers
 outliers <- data_participants[outlier_indices, ]
 data_cleaned <- data_participants[!data_participants$Response %in% outliers$Response, ]
+
+
+
+set.seed(14)
+
+test <- data_participants |>
+  mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = T, prob = c(.8, .2))) |>
+  filter(is_outlier == 0) |>
+  group_by(Participant_Private_ID) |>
+  mutate(n_trials = n()) |>
+  mutate(n_bad_trials = 85*2 - n_trials) |>
+  mutate(percent_bad_trials = n_bad_trials / (85*2)) |>
+  filter(percent_bad_trials <= 0.2)
+  
+
 ```
 
 ### SD table
@@ -248,15 +260,29 @@ write.csv(data_participants, "data_participants.csv", row.names = FALSE)
 
 ### examining order effect:
 
-Examining how the order of presenting conditions affects ratings of images as "Arab" or "Jewish," to ensure there is no influence of presentation sequence on perceptions.
+Examining how the order of conditions affects ratings of images as "Arab" or "Jewish," to ensure there is no influence of presentation sequence on perceptions. *Visualization of order effect*
+
+```{r}
+#| code-fold: true
+
+# Visualization of order effects
+ggplot(data_participants, aes(x = order_of_conditions, y = Response, fill = display)) +
+  geom_boxplot() +
+  facet_wrap(~display, scales = "free") +
+  labs(title = "Order Effect on Ratings",
+       x = "Order of Conditions",
+       y = "Rating") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Pastel1")
+
+```
+
+Examining order effect first using regression analysis:
 
 ```{r}
 #| code-fold: true
 #| warning: false
-mean_ratings_by_order <- data_participants |>
-  group_by(order_of_conditions, display) |>
-  summarise(mean_rating = mean(Response, na.rm = TRUE), .groups = 'drop') |>
-  pivot_wider(names_from = display, values_from = mean_rating)
+
 
 
 order_effect <- lm(Response ~ order_of_conditions, data = data_participants)
@@ -269,6 +295,12 @@ Perform a t-test to see if there's a significant difference in ratings between o
 ```{r}
 #| code-fold: true
 
+mean_ratings_by_order <- data_participants |>
+  group_by(order_of_conditions, display) |>
+  summarise(mean_rating = mean(Response, na.rm = TRUE), .groups = 'drop') |>
+  pivot_wider(names_from = display, values_from = mean_rating)
+
+
 t_test_result_jewish <- t.test(Response ~ order_of_conditions,
                                data = dplyr::filter(data_participants, display == "task_Jewish"),
                                alternative = "two.sided")
@@ -277,15 +309,6 @@ t_test_result_arab <- t.test(Response ~ order_of_conditions,
                              data = dplyr::filter(data_participants, display == "task_Arab"),
                              alternative = "two.sided")
 
-# Visualization of order effects
-ggplot(data_participants, aes(x = order_of_conditions, y = Response, fill = display)) +
-  geom_boxplot() +
-  facet_wrap(~display, scales = "free") +
-  labs(title = "Order Effect on Ratings",
-       x = "Order of Conditions",
-       y = "Rating") +
-  theme_minimal() +
-  scale_fill_brewer(palette = "Pastel1")
 
 
 ```
@@ -352,7 +375,27 @@ data_images_choosen <- data_images |>
 
 ### Responses and overall trends per image by display
 
-visualaizing image ratings in both display forms.
+Visualizing image ratings in both display forms.
+
+```{r}
+#| code-fold: true
+
+plot_images <- data_participants |>
+  group_by(display, image) |>
+  mutate(per_condition_mean = mean(Response, na.rm = T)) |>
+  #filter(str_detect(image, pattern = "20")) |>
+  ggplot(aes(x = display, y = Response)) +
+  geom_point() +
+  geom_point(aes(y = per_condition_mean, color = "red"), show.legend = F) +
+  facet_wrap(~image, scales = "fixed") +
+  scale_y_continuous(labels = seq(0, 100, 10), breaks = seq(0, 100, 10)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
+  theme_classic()
+
+ggsave("plot_images.png", plot = plot_images, path = "../Plots/", width = 4000, height = 4000, units = "px")
+```
+
+![alt text: Overall trends per image by display](../Plots/plot_images.png)
 
 ```{r}
 #| code-fold: true
@@ -390,31 +433,19 @@ plot1 <- data_participants1 |>
   scale_y_continuous(labels = seq(0, 100, 10), breaks = seq(0, 100, 10)) +
   theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
   theme_classic() +
-  scale_color_manual(values = c("same" = "#E84646", "no_same" = "#B26B8D", "mean" = "#7B8FD4"))
+  scale_color_manual(values = c("same" = "#E84646", "no_same" = "black", "mean" = "#7B8FD4"))
 
 
 # Display the plot
 
-ggsave("plotex.png", plot = plot1, path = "../Plots/", width = 4000, height = 4000, units = "px")
+ggsave("plot1.png", plot = plot1, path = "../Plots/", width = 4000, height = 4000, units = "px")
 
 
-plot_images <- data_participants |>
-  group_by(display, image) |>
-  mutate(per_condition_mean = mean(Response, na.rm = T)) |>
-  #filter(str_detect(image, pattern = "20")) |>
-  ggplot(aes(x = display, y = Response)) +
-  geom_point() +
-  geom_point(aes(y = per_condition_mean, color = "red"), show.legend = F) +
-  facet_wrap(~image, scales = "fixed") +
-  scale_y_continuous(labels = seq(0, 100, 10), breaks = seq(0, 100, 10)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
-  theme_classic()
 
-ggsave("plot_images.png", plot = plot_images, path = "../Plots/", width = 4000, height = 4000, units = "px")
 
 ```
 
-![alt text: Overall trends per image by display](../Plots/plot_images.png)
+![alt text: Overall trends per image by display,](../Plots/plot1.png)
 
 ### Participants ratings- individual participant responses and overall trends
 
@@ -437,31 +468,32 @@ plot_participants <- data_participants |>
   theme_classic()
 
 
-
 ggsave("plot_participants.png", plot = plot_participants, path = "../Plots/", width = 1400, height = 1300, units = "px")
 ```
 
-![alt text: Participants ratings](images/plot.png) Trying to add a line that will connect between the images
+![alt text: Participants ratings](images/plot.png)
+
+Adding lines that connects between the ratings of each image:
 
 ```{r}
 #| code-fold: true
 
-plot_participants12 <- data_participants |>
-  group_by(Participant_Private_ID, image, display) |>  # Keep 'display' in the grouping
-  mutate(participant_mean = mean(Response, na.rm = TRUE)) |>
-  ggplot(aes(x = display, y = Response, group = interaction(Participant_Private_ID, image), color = interaction(Participant_Private_ID, image))) +  # interaction() combines the participant ID and image ID for grouping
-  geom_point(aes(y = participant_mean), color = "red", show.legend = FALSE) +
-  geom_point() +
-  geom_line(aes(group = interaction(Participant_Private_ID, image)), color = "gray65") +
-  facet_wrap(~Participant_Private_ID) +
-  scale_x_discrete(labels = c("Arab", "Jewish")) +
-  scale_y_continuous(breaks = seq(0, 100, 10), labels = seq(0, 100, 10)) +
-  labs(x = "") +
-  theme_classic()
+#plot_participants12 <- data_participants |>
+  #group_by(Participant_Private_ID, image, display) |>  # Keep 'display' in the grouping
+  #mutate(participant_mean = mean(Response, na.rm = TRUE)) |>
+  #ggplot(aes(x = display, y = Response, group = interaction(Participant_Private_ID, image), color = interaction(Participant_Private_ID, image))) +  # interaction() combines the participant ID and image ID for grouping
+  #geom_point(aes(y = participant_mean), color = "red", show.legend = FALSE) +
+  #geom_point() +
+  #geom_line(aes(group = interaction(Participant_Private_ID, image)), color = "gray65") +
+  #facet_wrap(~Participant_Private_ID) +
+  #scale_x_discrete(labels = c("Arab", "Jewish")) +
+  #scale_y_continuous(breaks = seq(0, 100, 10), labels = seq(0, 100, 10)) +
+  #labs(x = "") +
+  #theme_classic()
 
 
 
-plot_participants1 <- data_participants |>
+plot_participants_with_line <- data_participants |>
   ggplot(aes(x = display, y = Response)) +
   geom_smooth(aes(x = display, y = Response, group = image), method = "lm", color = "gray84", se = F, inherit.aes = F) +
   geom_smooth(aes(group = -1), method = "lm", se = F, color = "red") +
@@ -472,7 +504,7 @@ plot_participants1 <- data_participants |>
 
 
 
-plot_participants1
+plot_participants_with_line
 ```
 
 ## Demographics
@@ -496,8 +528,6 @@ data_demo <- rbind(data_demo_roei, data_demo_shani, data_demo_noa) |>
 
 data_demo$gender[3] <- "אישה"
 ```
-
-Arranging demografics DATA
 
 ```{r}
 #| code-fold: true
@@ -536,6 +566,14 @@ ggplot(demo_wide_clean, aes(x = age)) +
   geom_histogram(bins = 50) +
   scale_x_continuous(breaks = seq(17, 71, 2)) +
   theme_classic()
+
+
+```
+
+Summary Table for AGE stat:
+
+```{r}
+#| code-fold: true
 
 Age_stats <- get_summary_stats(as.data.frame(as.numeric(demo_wide_clean$age)))
 
@@ -586,6 +624,14 @@ ggplot(demo_wide_clean, aes(x = religiosity)) +
   geom_histogram(stat = "count") +
   scale_y_continuous(breaks = seq(0, 200, 10)) +
   theme_classic()
+
+
+```
+
+Summary Table for Religiosity stat:
+
+```{r}
+#| code-fold: true
 
 religiosity_stats <- get_summary_stats(as.data.frame(as.numeric(demo_wide_clean$religiosity)))
 Age_stats <- get_summary_stats(as.data.frame(as.numeric(demo_wide_clean$age)))
@@ -647,6 +693,14 @@ ggplot(drop_na(demo_wide_clean, SES), aes(x = SES)) +
   theme(plot.title = element_text(family = "serif", hjust = 0.5, size = 16),
         plot.subtitle = element_text(family = "serif", hjust = 0.5, size = 10))
 
+
+
+```
+
+Summary Table for SES stat:
+
+```{r}
+#| code-fold: true
 
 SES_stats <- get_summary_stats(as.data.frame(as.numeric(demo_wide_clean$SES)))
 
