@@ -65,13 +65,14 @@ Import data sets related to the main task, attention checks, and demographics.
 ```{r}
 #| code-fold: true
 #| warning: False
+getwd()
+library(readr)
+data_categorization_jwish_first <- read_csv("../Data/data_exp_143127-v17_task-jwishfirstrealdata.csv", show_col_types = FALSE)
+data_categorization_Arab_first <- read_csv("../Data/data_exp_143127-v17_task-4qo7Arabfirstrealdata.csv", show_col_types = FALSE)
+  
+att_check <-  read_csv("../Data/data_exp_143127-v17_task-sfst_ATTcheck.csv", show_col_types = F)
 
-data_categorization_jwish_first <- 
 
-
-data_categorization_roei <- read_csv("../Data/data-task-ib3a_roei.csv", show_col_types = F)
-data_categorization_shani <- read_csv("../Data/data-task-ib3a_shani1.csv", show_col_types = F)
-data_categorization_noa <- read_csv("../Data/data-task-4qo7_noa.csv", show_col_types = F)
 
 
 
@@ -92,7 +93,7 @@ data_demo_noa <- read_csv("../Data/data-questionnaire-jj6n_noa.csv", show_col_ty
 ```{r}
 #| code-fold: true
 
-att_check <- rbind(att_check_roei, att_check_shani, att_check_noa)|>
+att_check <- att_check |>
   colnames_to_underscores() |>
   dplyr::filter(str_detect(Zone_Type, pattern = "endValue")) |>
   select(Participant_Private_ID, Response) |>
@@ -123,8 +124,7 @@ failed_IDs <- att_check |>
 ```{r}
 #| code-fold: true
 
-data_participants <- rbind(data_categorization_roei,data_categorization_shani,
-                           data_categorization_noa)|>
+data_participants <- rbind(data_categorization_Arab_first,data_categorization_jwish_first)|>
   colnames_to_underscores() |>
   dplyr::filter(!(Participant_Private_ID %in% failed_IDs$Participant_Private_ID)) |>
   dplyr::filter(display %in% c("task_Jewish", "task_Arab")) |> # removing instructions screens
@@ -520,9 +520,9 @@ plot_participants_with_line
 
 ```{r}
 #| code-fold: true
+data_demo <- read_csv("../Data/data_exp_143127-v17_questionnaire-jj6n_demo_all_long_for.csv", show_col_types = F)
 
-
-data_demo <- rbind(data_demo_roei, data_demo_shani, data_demo_noa) |>
+data_demo <- data_demo |>
   colnames_to_underscores() |>
   dplyr::filter(!(Question_Key %in% c("BEGIN QUESTIONNAIRE", "END QUESTIONNAIRE"))) |>
   dplyr::filter(Event_Index != "END OF FILE") |>
@@ -542,8 +542,25 @@ demo_wide_clean <- data_demo |>
   mutate(Participant_Private_ID = factor(Participant_Private_ID),
          age = as.numeric(age),
          children = as.numeric(children),
-         scale_of_SES = as.numeric(scale_of_SES))
+         scale_of_SES = as.numeric(scale_of_SES),
+         data_demo$`vision-quantised` = factor(vision-quantised),
+         data_demo$`language -quantised` = factor(language -quantised))
 
+demo_wide_clean <- data_demo |>
+  mutate(gender = case_when(
+    `gender-quantised` == "1" ~ "man",
+    `gender-quantised` == "2" ~ "woman"
+  )) |>
+  select(-`gender-quantised`, -`gender-text`, -`ethnic-text`, -`religiosity-quantised`, -`scale_of_SES-quantised`, -`age-quantised`) |>
+  mutate(
+    Participant_Private_ID = factor(Participant_Private_ID),
+    age = as.numeric(age),
+    children = as.numeric(children),
+    scale_of_SES = as.numeric(scale_of_SES),
+    `vision-quantised` = factor(`vision-quantised`),
+    `language -quantised` = factor(`language -quantised`)
+    
+  )
 demo_wide_clean$`ethnic-1`[3] <- "ישראלי/ת"
 demo_wide_clean$`ethnic-4` <- "יהודי/ת"
 demo_wide_clean$education[3] <- " למדתי לימודים מתקדמים מעבר לתואר ראשון"

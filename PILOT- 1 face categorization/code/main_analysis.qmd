@@ -66,6 +66,9 @@ Import data sets related to the main task, attention checks, and demographics.
 #| code-fold: true
 #| warning: False
 
+
+
+
 data_categorization_roei <- read_csv("../Data/data-task-ib3a_roei.csv", show_col_types = F)
 data_categorization_shani <- read_csv("../Data/data-task-ib3a_shani1.csv", show_col_types = F)
 data_categorization_noa <- read_csv("../Data/data-task-4qo7_noa.csv", show_col_types = F)
@@ -552,7 +555,7 @@ demo_wide_clean$education[3] <- " למדתי לימודים מתקדמים מע�
 #| code-fold: true
 
 demo_wide_clean <- demo_wide_clean |>
-  rename(ethnic = `ethnic-1`, SES = scale_of_SES, comment = `response-7`, ethnic2 = `ethnic-4`)
+  rename(ethnic = `ethnic-1`, SES = scale_of_SES, comment = `response-7`, ethnic2 = `ethnic-4`, )
 ```
 
 ### separatlly visualizations and summary statistics for demographic variables
