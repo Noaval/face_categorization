@@ -66,22 +66,13 @@ Import data sets related to the main task, attention checks, and demographics.
 #| code-fold: true
 #| warning: False
 
+data_categorization_jwish_first <- read_csv("../Data/data_exp_143127-v17_task-jwishfirstrealdata.csv", show_col_types = FALSE)
+data_categorization_Arab_first <- read_csv("../Data/data_exp_143127-v17_task-4qo7Arabfirstrealdata.csv", show_col_types = FALSE)
+  
+att_check <-  read_csv("../Data/data_exp_143127-v17_task-sfst_ATTcheck.csv", show_col_types = F)
 
+data_demo <- read_csv("../Data/data_exp_143127-v17_questionnaire-jj6n_demo_all_long_for.csv", show_col_types = F)
 
-
-data_categorization_roei <- read_csv("../Data/data-task-ib3a_roei.csv", show_col_types = F)
-data_categorization_shani <- read_csv("../Data/data-task-ib3a_shani1.csv", show_col_types = F)
-data_categorization_noa <- read_csv("../Data/data-task-4qo7_noa.csv", show_col_types = F)
-
-
-
-att_check_roei <- read_csv("../Data/data-task-sfst_roei.csv", show_col_types = F)
-att_check_shani <- read_csv("../Data/data-task-sfst_shani1.csv", show_col_types = F)
-att_check_noa <- read_csv("../Data/data-task-sfst_noa.csv", show_col_types = F)
-
-data_demo_roei <- read_csv("../Data/data-questionnaire-jj6n_roei.csv", show_col_types = F)
-data_demo_shani <- read_csv("../Data/data-questionnaire-jj6n_shani1.csv", show_col_types = F)
-data_demo_noa <- read_csv("../Data/data-questionnaire-jj6n_noa.csv", show_col_types = F)
 
 ```
 
@@ -92,7 +83,7 @@ data_demo_noa <- read_csv("../Data/data-questionnaire-jj6n_noa.csv", show_col_ty
 ```{r}
 #| code-fold: true
 
-att_check <- rbind(att_check_roei, att_check_shani, att_check_noa)|>
+att_check <- att_check|>
   colnames_to_underscores() |>
   dplyr::filter(str_detect(Zone_Type, pattern = "endValue")) |>
   select(Participant_Private_ID, Response) |>
@@ -123,8 +114,7 @@ failed_IDs <- att_check |>
 ```{r}
 #| code-fold: true
 
-data_participants <- rbind(data_categorization_roei,data_categorization_shani,
-                           data_categorization_noa)|>
+data_participants <- rbind(data_categorization_Arab_first,data_categorization_jwish_first)|>
   colnames_to_underscores() |>
   dplyr::filter(!(Participant_Private_ID %in% failed_IDs$Participant_Private_ID)) |>
   dplyr::filter(display %in% c("task_Jewish", "task_Arab")) |> # removing instructions screens
@@ -140,7 +130,10 @@ data_participants <- rbind(data_categorization_roei,data_categorization_shani,
     TRUE ~ Task_Name  
   )) |>
   rename(order_of_conditions = Task_Name)
+
+num_participants <- n_distinct(data_participants$Participant_Private_ID)
 ```
+
 
 #### visualizing responses by display
 
@@ -164,41 +157,16 @@ density_plot2 <- ggplot(data_participants, aes(x = Response, fill = display)) +
              aes(xintercept = mean_response),
              linetype = "dashed", color = "black", size = 0.5) 
 print(density_plot2)
+ggsave("density_plot_with_all.png", density_plot2, path = "../Plots/", width = 10, height = 8, units = "in", bg = "white")
+
 ```
 
 ### Detecting outlires
 
 Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
 
-First option to pbtain the MAD MEDIAN ROLE for detecting outlires [link](https://rdrr.io/cran/Routliers/man/outliers_mad.html).
-
 -   b is a scaling factor for the MAD to make it consistent for the normal distribution (the default is 1.4826
 -   threshold is the cutoff value above which values are considered outliers (default is 3)
-
-```{r}
-#| code-fold: true
-
-#code block 1
-# Assuming outliers_mad is defined like this:
-outliers_mad <- function(x, b = 1.4826, threshold = 3, na.rm = TRUE) {
-  if(na.rm) {
-    x <- na.omit(x)
-  }
-  mad_value <- mad(x, constant = b)
-  median_value <- median(x)
-  deviation <- abs(x - median_value) / mad_value
-  return(deviation > threshold)
-}
-data_participants <- data_participants |>
-  mutate(is_outlier = ifelse(outliers_mad(Response, b = 1.4826, threshold = 3, na.rm = TRUE), 1, 0))
-
-# filter out outliers directly
-data_cleaned <- data_participants %>% filter(is_outlier == 0)
-
-# If you want to analyze a specific column and store results
-response_outliers <- outliers_mad(data_participants$Response, b = 1.4826, threshold = 3, na.rm = TRUE)
-```
-
 Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
 
 ```{r}
@@ -224,17 +192,27 @@ data_cleaned <- data_participants[!data_participants$Response %in% outliers$Resp
 
 
 
-set.seed(14)
+  set.seed(14)
 
-test <- data_participants |>
-  mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = T, prob = c(.8, .2))) |>
-  filter(is_outlier == 0) |>
-  group_by(Participant_Private_ID) |>
-  mutate(n_trials = n()) |>
-  mutate(n_bad_trials = 85*2 - n_trials) |>
-  mutate(percent_bad_trials = n_bad_trials / (85*2)) |>
-  filter(percent_bad_trials <= 0.2)
-  
+# test <- data_participants |>
+#   #mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = T, prob = c(.8, .2))) |>
+#   filter(is_outlier == 1) |>
+#   group_by(Participant_Private_ID) |>
+#   mutate(n_trials = n()) |>
+#   mutate(bad_trials = 85*2 - n_trials) |>
+#   mutate(percent_bad_trials = n_bad_trials / (85*2)) 
+#   #filter(percent_bad_trials <= 0.2)
+# library(dplyr)  
+
+test1 <- data_participants |>
+    filter(is_outlier == 1) |>
+    group_by(Participant_Private_ID) |>
+    mutate(bad_trials = n(), 
+           #bad_trials = 85 * 2 - n_trials, 
+           percent_bad_trials = bad_trials / (85 * 2))
+
+num_participants_out <- n_distinct(test1$Participant_Private_ID)
+
 
 ```
 
@@ -269,29 +247,25 @@ Examining how the order of conditions affects ratings of images as "Arab" or "Je
 #| code-fold: true
 
 # Visualization of order effects
-ggplot(data_participants, aes(x = order_of_conditions, y = Response, fill = display)) +
+order_effect_plot <- ggplot(data_participants, aes(x = order_of_conditions, y = Response, fill = display)) +
   geom_boxplot() +
+  stat_summary(fun = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..), width = 0.75, color = "red") +
   facet_wrap(~display, scales = "free") +
   labs(title = "Order Effect on Ratings",
        x = "Order of Conditions",
        y = "Rating") +
   theme_minimal() +
+  theme(plot.background = element_rect(fill = "white"), # Set plot background to white
+        panel.background = element_rect(fill = "white"), # Ensure panel background is white
+        text = element_text(color = "black")) + # Ensure text is black
   scale_fill_brewer(palette = "Pastel1")
 
+
+
+ggsave("order_effect_with_all.png", order_effect_plot, path = "../Plots/", width = 4000, height = 4000, units = "px")
+
 ```
 
-Examining order effect first using regression analysis:
-
-```{r}
-#| code-fold: true
-#| warning: false
-
-
-
-order_effect <- lm(Response ~ order_of_conditions, data = data_participants)
-
-print(parameters::model_parameters(order_effect))
-```
 
 Perform a t-test to see if there's a significant difference in ratings between orders
 
@@ -329,6 +303,9 @@ t_test_results <- data.frame(
 
 # Create a table from the results
 kable(t_test_results, caption = "T-Test Results for Jewish and Arab Displays", format = "markdown")
+
+markdown_table <- kable(t_test_results, caption = "T-Test Results for Jewish and Arab Displays", format = "markdown")
+writeLines(markdown_table, "t_test_results.md")
 ```
 
 ## Main task
@@ -343,6 +320,7 @@ kable(t_test_results, caption = "T-Test Results for Jewish and Arab Displays", f
 
 data_images <- data_participants |>
   group_by(image, Participant_Private_ID) |>
+  #dplyr::filter(!(Participant_Private_ID %in% exclude_participant_IDs))|>
   dplyr::summarize(
     task_Jewish = mean(Response[display == "task_Jewish"], na.rm = TRUE),
     task_Arab = mean(Response[display == "task_Arab"], na.rm = TRUE),
@@ -374,6 +352,12 @@ data_images_choosen <- data_images |>
 
 ```
 
+### Difference of means per image by display without outlires and particular participants
+
+-   Analyze the main task by calculating and comparing mean responses for different image categories.
+-   Identify significant differences in means and categorize images based on these differences.
+
+
 ## Visualization with ggplot2:
 
 ### Responses and overall trends per image by display
@@ -395,10 +379,11 @@ plot_images <- data_participants |>
   theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
   theme_classic()
 
-ggsave("plot_images.png", plot = plot_images, path = "../Plots/", width = 4000, height = 4000, units = "px")
+ggsave("plot_images_with_all.png", plot = plot_images, path = "../Plots/", width = 4000, height = 4000, units = "px")
 ```
 
-![alt text: Overall trends per image by display](../Plots/plot_images.png)
+![Overall trends per image by display](../Plots/plot_images.png)
+
 
 ```{r}
 #| code-fold: true
@@ -416,7 +401,7 @@ data_wide <- data_wide |>
 # Calculating the difference
 data_diff <- data_wide |>
   mutate(diff = abs(`task_Arab` - `task_Jewish`), # Replace with your actual display column names
-         diff_less_than_10 = ifelse(diff < 10, "same", "no_same"))
+         diff_less_than_22 = ifelse(diff < 10, "same", "no_same"))
 
 # Merging the difference back into the original data
 data_participants1 <- data_participants |>
@@ -429,7 +414,7 @@ data_participants1 <- data_participants1 |>
 
 # Creating the plot
 plot1 <- data_participants1 |>
-  ggplot(aes(x = display, y = Response, color = diff_less_than_10)) +
+  ggplot(aes(x = display, y = Response, color = diff_less_than_22)) +
   geom_point() +
   geom_point(aes(y = per_condition_mean, color = "mean"), show.legend = F) +
   facet_wrap(~image, scales = "fixed") +
@@ -441,7 +426,7 @@ plot1 <- data_participants1 |>
 
 # Display the plot
 
-ggsave("plot1.png", plot = plot1, path = "../Plots/", width = 4000, height = 4000, units = "px")
+ggsave("plot1_with_all.png", plot = plot1, path = "../Plots/", width = 4000, height = 4000, units = "px")
 
 
 
@@ -471,7 +456,7 @@ plot_participants <- data_participants |>
   theme_classic()
 
 
-ggsave("plot_participants.png", plot = plot_participants, path = "../Plots/", width = 1400, height = 1300, units = "px")
+ggsave("plot_participants_with_all.png", plot = plot_participants, path = "../Plots/", width = 4000, height = 4000, units = "px")
 ```
 
 ![alt text: Participants ratings](images/plot.png)
@@ -505,7 +490,7 @@ plot_participants_with_line <- data_participants |>
   theme_classic()
 
 
-
+ggsave("plot_participants_with_line_all.png", plot = plot_participants_with_line, path = "../Plots/", width = 4000, height = 4000, units = "px")
 
 plot_participants_with_line
 ```
@@ -522,14 +507,14 @@ plot_participants_with_line
 #| code-fold: true
 
 
-data_demo <- rbind(data_demo_roei, data_demo_shani, data_demo_noa) |>
+data_demo <- data_demo |>
   colnames_to_underscores() |>
   dplyr::filter(!(Question_Key %in% c("BEGIN QUESTIONNAIRE", "END QUESTIONNAIRE"))) |>
   dplyr::filter(Event_Index != "END OF FILE") |>
   select(Participant_Private_ID, Question_Key, Response) |>
   pivot_wider(names_from = Question_Key, values_from = Response)
 
-data_demo$gender[3] <- "אישה"
+
 ```
 
 ```{r}
@@ -544,9 +529,7 @@ demo_wide_clean <- data_demo |>
          children = as.numeric(children),
          scale_of_SES = as.numeric(scale_of_SES))
 
-demo_wide_clean$`ethnic-1`[3] <- "ישראלי/ת"
-demo_wide_clean$`ethnic-4` <- "יהודי/ת"
-demo_wide_clean$education[3] <- " למדתי לימודים מתקדמים מעבר לתואר ראשון"
+
 ```
 
 #### Rename columns
@@ -612,9 +595,13 @@ ggplot(demo_wide_clean, aes(x = gender)) +
   scale_y_continuous(breaks = seq(0, 200, 10)) +
   theme_classic()
 
-male_per <- sum(demo_wide_clean$gender == "man")/nrow(demo_wide_clean)
-female_per <- sum(demo_wide_clean$gender == "woman")/nrow(demo_wide_clean)
-a_baniari_per <- sum(demo_wide_clean$gender == "לא בינארי")/nrow(demo_wide_clean)
+male_per <- sum(demo_wide_clean$gender == "man", na.rm = TRUE) / 
+            sum(!is.na(demo_wide_clean$gender))
+
+female_per <- sum(demo_wide_clean$gender == "woman", na.rm = T) /
+   sum(!is.na(demo_wide_clean$gender))
+a_baniari_per <- sum(demo_wide_clean$gender == "לא בינארי", na.rm = T)/
+  sum(!is.na(demo_wide_clean$gender))
 
 ```
 
@@ -644,7 +631,8 @@ if (!requireNamespace("knitr", quietly = TRUE)) {
 }
 
 library(knitr)
-
+str(demo_wide_clean)
+demo_wide_clean$religiosity <- as.numeric(as.character(demo_wide_clean$religiosity))
 # Generate a nice table using kable
 kable(religiosity_stats, caption = "Summary Statistics for religiosity", format = "markdown")
 
@@ -669,10 +657,16 @@ demo_table <- flextable::summarizor(demo_wide_clean[,-1], overall_label = "overa
 ```{r}
 #| code-fold: true
 
+education_levels <- c('1' = 'Part of Primary School', '2' = 'Finished Primary School', '3' =  'Part of High School', '4' = 'Finished High School', '5' = 'In Bachelor\'s Degree', '6' = 'Finished Bachelor\'s Degree', '7' = 'Master\'s Degree', '8' = 'Prefer not to answer')
+
+demo_wide_clean$education <- factor(demo_wide_clean$`education-quantised`, levels = c('1', '2', '3', '4', '5', '6', '7', '8'), labels = c('Part of Primary School', 'Finished Primary School', 'Part of High School', 'Finished High School', 'In Bachelor\'s Degree', 'Finished Bachelor\'s Degree', 'Master\'s Degree', 'Prefer not to answer'))
+
+
 ggplot(demo_wide_clean, aes(x = education)) +
-  geom_histogram(stat = "count") +
+  geom_bar() +
   scale_y_continuous(breaks = seq(0, 200, 10)) +
-  theme_classic()
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
 ```

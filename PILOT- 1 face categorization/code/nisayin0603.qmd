@@ -510,7 +510,7 @@ plot_participants_with_line <- data_participants |>
 plot_participants_with_line
 ```
 
-## Demographics
+## Demographics________________________________________________________________________________________________________
 
 ### Data_set arrangment
 
