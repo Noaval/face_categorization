@@ -134,7 +134,6 @@ data_participants <- rbind(data_categorization_Arab_first,data_categorization_jw
 num_participants <- n_distinct(data_participants$Participant_Private_ID)
 ```
 
-
 #### visualizing responses by display
 
 Density plots for participants' responses based on the dysplay conditions, labeled as "task Arab" versus "task Jewish."
@@ -166,8 +165,7 @@ ggsave("density_plot_with_all.png", density_plot2, path = "../Plots/", width = 1
 Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
 
 -   b is a scaling factor for the MAD to make it consistent for the normal distribution (the default is 1.4826
--   threshold is the cutoff value above which values are considered outliers (default is 3)
-Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
+-   threshold is the cutoff value above which values are considered outliers (default is 3) Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
 
 ```{r}
 #| code-fold: true
@@ -260,12 +258,11 @@ order_effect_plot <- ggplot(data_participants, aes(x = order_of_conditions, y = 
         text = element_text(color = "black")) + # Ensure text is black
   scale_fill_brewer(palette = "Pastel1")
 
-
+order_effect_plot
 
 ggsave("order_effect_with_all.png", order_effect_plot, path = "../Plots/", width = 4000, height = 4000, units = "px")
 
 ```
-
 
 Perform a t-test to see if there's a significant difference in ratings between orders
 
@@ -310,7 +307,7 @@ writeLines(markdown_table, "t_test_results.md")
 
 ## Main task
 
-### Difference of means per image by display with a cutoff of with a cutoff of *10* points difference between the ratings
+### Difference of means per image by display with a cutoff of *10* points difference between the ratings
 
 -   Analyze the main task by calculating and comparing mean responses for different image categories.
 -   Identify significant differences in means and categorize images based on these differences.
@@ -341,22 +338,45 @@ data_images_10<- data_participants |>
   mutate(avg_diff = abs(avg_diff)) |>
   arrange(avg_diff)
 
-data_images_big_diff_10 <- data_images |>
+data_images_big_diff_10 <- data_images_10 |>
   dplyr::filter(abs(avg_diff) >= 10) |>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
-data_images_choosen_10 <- data_images |>
+
+
+data_images_choosen_10 <- data_images_10 |>
   dplyr::filter(abs(avg_diff)<10)|>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
+kable(data_images_10, caption = "Difference of means with a cutoff of 10 points")
+
+
+
 
 saveRDS(data_images_10, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
 ```
 
-#### Difference of means per image by display with a cutoff of with a cutoff of *15* points difference between the ratings
+Summary Table:
+
 ```{r}
+#| code-fold: true
+
+summary_table <- data_images_10 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+print(summary_table)
+
+```
+
+#### Difference of means per image by display with a cutoff of with a cutoff of *15* points difference between the ratings
+
+```{r}
+#| code-fold: true
+
 data_images_15<- data_participants |>
   group_by(image, Participant_Private_ID) |>
   #dplyr::filter(!(Participant_Private_ID %in% exclude_participant_IDs))|>
@@ -380,22 +400,44 @@ data_images_15<- data_participants |>
   mutate(avg_diff = abs(avg_diff)) |>
   arrange(avg_diff)
 
-data_images_big_diff_15 <- data_images |>
+data_images_big_diff_15 <- data_images_15 |>
   dplyr::filter(abs(avg_diff) >= 15) |>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
-data_images_choosen_15 <- data_images |>
+data_images_choosen_15 <- data_images_15 |>
   dplyr::filter(abs(avg_diff)<15)|>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
 
+kable(data_images_15, caption = "Difference of means with a cutoff of 15 points")
+
+
+
+
+
 saveRDS(data_images_15, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
 ```
 
-#### Difference of means per image by display with a cutoff of with a cutoff of *20* points difference between the ratings
+Summary Table:
+
 ```{r}
+#| code-fold: true
+
+summary_table_15 <- data_images_15 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+print(summary_table_15)
+```
+
+#### Difference of means per image by display with a cutoff of with a cutoff of *20* points difference between the ratings
+
+```{r}
+#| code-fold: true
+
 data_images_20<- data_participants |>
   group_by(image, Participant_Private_ID) |>
   #dplyr::filter(!(Participant_Private_ID %in% exclude_participant_IDs))|>
@@ -419,22 +461,40 @@ data_images_20<- data_participants |>
   mutate(avg_diff = abs(avg_diff)) |>
   arrange(avg_diff)
 
-data_images_big_diff_20 <- data_images |>
+data_images_big_diff_20 <- data_images_20 |>
   dplyr::filter(abs(avg_diff) >= 20) |>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
-data_images_choosen_20 <- data_images |>
+data_images_choosen_20 <- data_images_20 |>
   dplyr::filter(abs(avg_diff)<20)|>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
 
+kable(data_images_20, caption = "Difference of means with a cutoff of 20 points")
+
+
+
+
 saveRDS(data_images_20, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
 ```
 
+Summary Table:
 
-### Difference of means per image by display and by order of conditions: 
+```{r}
+#| code-fold: true
+
+
+summary_table_20 <- data_images_20 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+print(summary_table_20)
+```
+
+### Difference of means per image by display and by order of conditions:
 
 ```{r}
 # Adjusting data_images to consider the effect of condition order
@@ -463,26 +523,8 @@ data_images_conditions <- data_participants |>
   arrange(order_of_conditions, abs(avg_diff)) # Sort by order of conditions and then by the size of differences
 
 
-data_images_big_diff <- data_images |>
-  filter(abs(avg_diff) >= 10) |>
-  mutate(
-    rated_ethnicity = case_when(
-      avg_diff < 0 ~ "Arab",
-      avg_diff > 0 ~ "Jewish"
-    )
-  )
 
-# Adjusting data_images_choosen to consider the effect of condition order
-data_images_choosen <- data_images |>
-  filter(abs(avg_diff) < 10) |>
-  mutate(
-    rated_ethnicity = case_when(
-      avg_diff < 0 ~ "Arab",
-      avg_diff > 0 ~ "Jewish"
-    )
-  )
 ```
-
 
 ## Visualization with ggplot2:
 
@@ -508,7 +550,8 @@ plot_images <- data_participants |>
 ggsave("plot_images_with_all.png", plot = plot_images, path = "../Plots/", width = 4000, height = 4000, units = "px")
 ```
 
-![Overall trends per image by display](../Plots/plot_images.png)
+![Overall trends per image by display](../Plots/plot_images_with_all.png)
+
 ### Responses and overall trends per image by display and *Order of conditions*
 
 ```{r}
@@ -531,7 +574,7 @@ ggsave("plot_images_order_condition_separated.png", plot = plot_image_condition,
 
 ```
 
-
+![Overall trends per image by display](../Plots/plot_images_order_condition_separated.png)
 
 ```{r}
 #| code-fold: true
@@ -549,7 +592,7 @@ data_wide <- data_wide |>
 # Calculating the difference
 data_diff <- data_wide |>
   mutate(diff = abs(`task_Arab` - `task_Jewish`), # Replace with your actual display column names
-         diff_less_than_22 = ifelse(diff < 10, "same", "no_same"))
+         diff_less_than_10 = ifelse(diff < 10, "same", "no_same"))
 
 # Merging the difference back into the original data
 data_participants1 <- data_participants |>
@@ -562,7 +605,7 @@ data_participants1 <- data_participants1 |>
 
 # Creating the plot
 plot1 <- data_participants1 |>
-  ggplot(aes(x = display, y = Response, color = diff_less_than_22)) +
+  ggplot(aes(x = display, y = Response, color = diff_less_than_10)) +
   geom_point() +
   geom_point(aes(y = per_condition_mean, color = "mean"), show.legend = F) +
   facet_wrap(~image, scales = "fixed") +
@@ -581,7 +624,7 @@ ggsave("plot1_with_all.png", plot = plot1, path = "../Plots/", width = 4000, hei
 
 ```
 
-![alt text: Overall trends per image by display,](../Plots/plot1.png)
+![alt text: Overall trends per image by display,](../Plots/plot1_with_all.png)
 
 ### Participants ratings- individual participant responses and overall trends
 
@@ -590,37 +633,15 @@ ggsave("plot1_with_all.png", plot = plot1, path = "../Plots/", width = 4000, hei
 #| label: Participants ratings
 #| fig-cap: "Individual participant responses"
 
-plot_participants <- data_participants |>
-  group_by(Participant_Private_ID, display) |>
-  mutate(participant_mean = mean(Response, na.rm = T)) |>
-  ggplot(aes(x = display, y = Response)) +
-  geom_point() +
-  geom_point(aes(y = participant_mean, color = "red"), show.legend = F) +
- # geom_label_repel(aes(y = participant_mean, label = participant_mean)) +
-  facet_wrap(~Participant_Private_ID) +
-  scale_x_discrete(labels = c("Arab", "Jewish")) +
-  scale_y_continuous(breaks = seq(0, 100, 10), labels = seq(0, 100, 10)) +
-  labs(x = "") +
-  theme_classic()
-
-
-ggsave("plot_participants_with_all.png", plot = plot_participants, path = "../Plots/", width = 4000, height = 4000, units = "px")
-```
-
-![alt text: Participants ratings](images/plot.png)
-```{r}
-
-# Create a summary of the order of conditions for each participant
-# Create a summary of the order of conditions for each participant with IDs
-participant_conditions <- data_participants %>%
-  distinct(Participant_Private_ID, order_of_conditions) %>%
+participant_conditions <- data_participants |>
+  distinct(Participant_Private_ID, order_of_conditions) |>
   mutate(label = paste(Participant_Private_ID, ifelse(order_of_conditions == "JewishFirst", "Jewish first", "Arab first")))
 
 
 
-plot_participants_condLabel <- data_participants %>%
-  group_by(Participant_Private_ID, display) %>%
-  mutate(participant_mean = mean(Response, na.rm = TRUE)) %>%
+plot_participants_condLabel <- data_participants |>
+  group_by(Participant_Private_ID, display) |>
+  mutate(participant_mean = mean(Response, na.rm = TRUE)) |>
   ggplot(aes(x = display, y = Response)) +
   geom_point() +
   geom_point(aes(y = participant_mean, color = "red"), show.legend = FALSE) +  # Highlighting participant mean
@@ -633,6 +654,8 @@ plot_participants_condLabel <- data_participants %>%
 
 ggsave("plot_participants_with_all_label.png", plot = plot_participants_condLabel, path = "../Plots/", width = 4000, height = 4000, units = "px")
 ```
+
+![alt text: Overall trends per image by display,](../Plots/plot_participants_with_all_label.png)
 
 Adding lines that connects between the ratings of each image:
 
@@ -651,10 +674,10 @@ plot_participants_with_line <- data_participants |>
 
 ggsave("plot_participants_with_line_all.png", plot = plot_participants_with_line, path = "../Plots/", width = 4000, height = 4000, units = "px")
 
-plot_participants_with_line
+
 ```
 
-## Demographics
+![alt text: Participants ratings with lines](../Plots/plot_participants_with_line_all.png) \## Demographics
 
 ### Data_set arrangment
 
@@ -879,6 +902,3 @@ kable(SES_stats_df, caption = "Summary Statistics for SES", format = "markdown")
 ```
 
 
-
-
-##############ni
