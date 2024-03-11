@@ -307,7 +307,7 @@ writeLines(markdown_table, "t_test_results.md")
 
 ## Main task
 
-### Difference of means per image by display with a cutoff of *10* points difference between the ratings
+### Difference of means per image by display with a cutoff of **10** points difference between the ratings
 
 -   Analyze the main task by calculating and comparing mean responses for different image categories.
 -   Identify significant differences in means and categorize images based on these differences.
@@ -363,16 +363,15 @@ Summary Table:
 ```{r}
 #| code-fold: true
 
-summary_table <- data_images_10 |>
+summary_table_10 <- data_images_10 |>
   count(rated_ethnicity) |>
   spread(key = rated_ethnicity, value = n)
 
 # Print the summary table
-print(summary_table)
-
+kable(summary_table_10, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
 ```
 
-#### Difference of means per image by display with a cutoff of with a cutoff of *15* points difference between the ratings
+#### Difference of means per image by display  with a cutoff of **15** points difference between the ratings
 
 ```{r}
 #| code-fold: true
@@ -430,10 +429,11 @@ summary_table_15 <- data_images_15 |>
   spread(key = rated_ethnicity, value = n)
 
 # Print the summary table
-print(summary_table_15)
+kable(summary_table_15, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
+
 ```
 
-#### Difference of means per image by display with a cutoff of with a cutoff of *20* points difference between the ratings
+#### Difference of means per image by display  with a cutoff of **20** points difference between the ratings
 
 ```{r}
 #| code-fold: true
@@ -491,12 +491,14 @@ summary_table_20 <- data_images_20 |>
   spread(key = rated_ethnicity, value = n)
 
 # Print the summary table
-print(summary_table_20)
+kable(summary_table_20, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
+
 ```
 
 ### Difference of means per image by display and by order of conditions:
 
 ```{r}
+#| code-fold: true
 # Adjusting data_images to consider the effect of condition order
 data_images_conditions <- data_participants |>
   group_by(image, Participant_Private_ID) |>
@@ -555,6 +557,8 @@ ggsave("plot_images_with_all.png", plot = plot_images, path = "../Plots/", width
 ### Responses and overall trends per image by display and *Order of conditions*
 
 ```{r}
+#| code-fold: true
+
 data_participants <- data_participants |>
   group_by(display, image, order_of_conditions) |>
   mutate(per_condition_mean = mean(Response, na.rm = TRUE)) |>
@@ -900,5 +904,3 @@ SES_stats_df <- data.frame(
 kable(SES_stats_df, caption = "Summary Statistics for SES", format = "markdown")
 
 ```
-
-
