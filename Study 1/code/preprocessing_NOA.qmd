@@ -1,0 +1,307 @@
+---
+title: "Preprocessing"
+format: html
+editor: visual
+---
+
+# -----------------------------------#
+# ---------- Preprocessing ----------#
+# -----------------------------------#
+
+# Setup ----
+#install.packages("textcat")
+
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(textcat)) # detecting languages
+
+
+# Functions ----
+colnames_spaces_to_underscore <- function(data = NULL) {
+  dat <- data
+  names(dat) <- stringr::str_replace_all(names(dat), pattern = " ", replacement = "_")
+  return(dat)
+}
+
+
+```
+
+
+# Loading data ----
+
+```{r}
+main_task <- read_csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/data (10).csv", show_col_types = FALSE)
+
+```
+
+
+
+
+## Pre-preprocessing ----
+
+```{r}
+main_task <- main_task[-nrow(main_task),] # remove last row (END OF FILE row)
+
+main_task <- colnames_spaces_to_underscore(main_task) # easier to work with colnames
+
+main_task$Event_Index <- as.numeric(main_task$Event_Index) # for filtering out training trials
+
+
+############ Adding columns ############
+######### Table1 - w/fixations #########
+main_task_pre1 <- main_task |>
+
+  # remove warning screen at the end of each trial
+  filter(is.na(Screen_Name) | Screen_Name != "Screen 7") |>
+
+  # saving participant condition.
+  # Creating new column containing condition, and then repeat it for each participant with the fill() function.
+  # condition = "MKD" means: "M" - male faces and titles, "K" - K was the same key, "D" - D was the different key.
+  group_by(Participant_Public_ID) |>
+  mutate(Condition = case_when(Event_Index == 2 ~ str_sub(Response, -3, -1),
+                               .default = NA)) |>
+  mutate(Condition = lead(Condition, 1)) |>
+  fill(Condition) |>
+  ungroup() |>
+
+  # Target face gender
+  mutate(target_sex = case_when(str_sub(Condition, 1, 1) == "F" ~ "female",
+                                str_sub(Condition, 1, 1) == "M" ~ "male")) |>
+
+  # Adding column holding the image name of each screen (screens 4 & 6).
+  mutate(First_Image = case_when(str_detect(Response, pattern = ".png") ~ Response,
+                           .default = NA)) |>
+  mutate(First_Image = case_when(Screen_Name == "Screen 6" ~ lag(First_Image, 2),
+                           is.na(Screen_Name) ~ NA,
+                           .default = lag(First_Image, 1))) |>
+
+  # Making 'first_image' and 'second_image' columns.
+  mutate(Second_Image = case_when(Screen_Name == "Screen 6" ~ First_Image,
+                                  .default = NA)) |>
+  mutate(First_Image = case_when(Screen_Name == "Screen 6" ~ NA,
+                                 .default = First_Image)) |>
+  mutate(First_Image = lag(First_Image, 4)) |>
+
+  # Adding column holding the identity of the second face (Same/Diff).
+  mutate(Identity = case_when(Trial_Number %in% c("Same", "Diff") ~ Trial_Number,
+                                     .default = NA)) |>
+  mutate(Identity = lag(Identity, 1)) |>
+
+  # Adding column holding the answer of the participant for the identity of the second image (same/diff/no answer).
+  mutate(Identity_answer = case_when(Response %in% c("Same", "Diff", "NO ANSWER") ~ Response,
+                              .default = NA)) |>
+  mutate(Identity_answer = lag(Identity_answer, 1)) |>
+
+  # Adding column holding data of answer (correct or wrong).
+  mutate(Correct_Identity = ifelse(!is.na(Identity) & !is.na(Identity_answer),
+                                   case_when(Identity == Identity_answer ~ "yes",
+                                             T ~ "no"),
+                                   NA)) |>
+
+  # Adding column holding the occupation presented in each trial.
+  mutate(Name = case_when(textcat(Response) == "hebrew-iso8859_8" ~ Response,
+                                .default = NA)) |>
+  mutate(Name = factor(lead(Name, 1))) |>
+
+  # Adding column holding the social status tier of the occupation presented.
+  mutate(Ethnicity = case_when(Response %in% c("HIGH", "LOW") ~ Response,
+                                   .default = NA)) |>
+  mutate(Ethnicity = case_match(Ethnicity,
+                                "HIGH" ~ "ARAB",
+                                "LOW" ~"JEWISH")) |>
+  mutate(Ethnicity = lead(Ethnicity, 2)) |>
+
+  # Adding column holding reaction time for the second face
+  mutate(Reaction_time = case_when(Screen_Name == "Screen 6" ~ Reaction_Time,
+                                   .default = NA))
+```
+
+### Table2 - wo/fixations
+
+```{r}
+main_task_pre2 <- main_task_pre1 |>
+
+  # This is the row with all the data mutated before
+  filter(Screen_Name == "Screen 6") |>
+
+  # Selecting only relevant variables
+  select(Participant_Public_ID, Participant_Private_ID, Mode, Condition, target_sex, First_Image,
+         Second_Image, Identity, Identity_answer, Correct_Identity, Name, Ethnicity, Reaction_time)
+
+```
+
+
+
+
+###### Stimulating answeres:
+
+```{r}
+sim_data <- main_task_pre2 |>
+  mutate(Participant_Private_ID = c("14")) |>
+  mutate(Identity_answer = sample(c("Same", "Diff"), size = nrow(main_task_pre2), replace = T),
+         Reaction_time = sample(Reaction_time)) |>
+  mutate(Correct_Identity = case_when(Identity == Identity_answer ~ "yes",
+                                      TRUE ~ "no",
+                                      .default = NA)) |>
+  rbind(main_task_pre2)
+
+
+```
+
+
+### Testing empty responses 
+
+```{r}
+test_summary <- sim_data |>
+  group_by(Participant_Private_ID) |>
+  filter(Mode == "test") |>
+  summarise(wrong_answers = sum(Identity_answer == "NO ANSWER"),
+            n_trials = n()) |>
+  mutate(Participant_Private_ID = factor(Participant_Private_ID))
+
+ggplot(test_summary, aes(x = Participant_Private_ID, y = wrong_answers)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(limits = c(0, 8), labels = seq(0, 8, 1), breaks = seq(0, 8, 1))
+
+test <- sim_data |>
+  group_by(Participant_Private_ID) |>
+  mutate(trial_num = c(1:n()),
+         Identity_answer = factor(case_when(Identity_answer == "NO ANSWER" ~ Identity_answer,
+                                     .default = "ANSWER"))) |>
+  filter(trial_num >= 7) |>
+  select(Participant_Private_ID, Identity_answer, trial_num)
+
+test_glm <- lme4::glmer(Identity_answer ~ trial_num + (trial_num | Participant_Private_ID),
+                  data = test, family = binomial(link = "logit"))
+
+parameters::model_parameters(test_glm, exponentiate = T)
+
+ggeffects::ggemmeans(test_glm, terms = "trial_num [all]") |>
+  plot(add.data = T, jitter = 0)
+```
+
+
+
+
+
+
+#### Exclusions ########
+
+```{r}
+failed_participants_id <- sim_data |>
+  filter(Mode == "test") |>
+  group_by(Participant_Private_ID) |>
+  summarise(failed_trials = sum(Identity_answer == "NO ANSWER"),
+            answer_same = sum(Identity_answer == "Same"),
+            answer_diff = sum(Identity_answer == "Diff"),
+            short_rt = sum(Reaction_time < 200),
+            long_rt = sum(Reaction_time > 902)) |>
+  filter(failed_trials >= 8 | answer_same >= 36 | answer_diff >= 36 | short_rt >= 8 | long_rt >= 8)
+
+
+sim_data <- sim_data |>
+
+  # only test trials
+  filter(Mode == "test") |>
+
+  # trials with reaction time between 200 and 900ms (6000 was the limit in the pilot runs, change before actual run!!!)
+  filter(Reaction_time > 200 & Reaction_time < 900) |>
+
+  # removing failed participants (gave NO ANSWER on 10% or more of trials, or gave identical answer to 90% or more of trials)
+  filter(!(Participant_Private_ID %in% failed_participants_id$Participant_Private_ID)) |>
+
+  # removing NO ANSWER trials
+  filter(Identity_answer != "NO ANSWER")
+```
+
+
+
+
+
+
+#### Outliers 
+
+### Detecting outlires
+
+Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
+
+Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
+
+
+
+```{r}
+threshold <- 2.24
+
+# Define a function to calculate outliers per subject
+identify_outliers <- function(sim_data) {
+  median_response <- median(sim_data$Reaction_time, na.rm = TRUE)
+  mad_response <- mad(sim_data$Reaction_time, constant = 1, na.rm = TRUE)
+  
+  lower_bound <- median_response - threshold * mad_response
+  upper_bound <- median_response + threshold * mad_response
+  
+  sim_data$is_outlier <- ifelse(sim_data$Reaction_time < lower_bound | sim_data$Reaction_time > upper_bound, 1, 0)
+  return(sim_data)
+}
+
+# Apply function per subject
+sim_data <- sim_data |> 
+  group_by(Participant_Private_ID) |>
+  do(identify_outliers(.))
+
+# Calculate the percentage of outliers per subject
+outlier_summary <- sim_data |>
+  group_by(Participant_Private_ID) |>
+  summarise(Outlier_Count = sum(is_outlier, na.rm = TRUE),
+            Total_Measures = n(),
+            Outlier_Percentage = (Outlier_Count / Total_Measures) * 100)
+
+# Identify subjects with more than 15% of measures as outliers
+subjects_to_exclude <- outlier_summary |>
+  filter(Outlier_Percentage > 15) |>
+  pull(Participant_Private_ID)
+
+```
+
+
+
+set.seed(14)
+
+# test <- data_participants |>
+#   #mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = T, prob = c(.8, .2))) |>
+#   filter(is_outlier == 1) |>
+#   group_by(Participant_Private_ID) |>
+#   mutate(n_trials = n()) |>
+#   mutate(bad_trials = 85*2 - n_trials) |>
+#   mutate(percent_bad_trials = n_bad_trials / (85*2)) 
+#   #filter(percent_bad_trials <= 0.2)
+# library(dplyr)  
+
+
+
+```{r}
+test1 <- sim_data |>
+  # mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = TRUE, prob = c(.8, .2))) |>
+  filter(is_outlier == 1) |>
+  group_by(Participant_Private_ID) |>
+  mutate(bad_trials = n(), 
+         #bad_trials = 85 * 2 - n_trials, 
+         percent_bad_trials = bad_trials / (85 * 2))
+
+num_participants_out <- n_distinct(test1$Participant_Private_ID)
+```
+
+
+
+
+################ Saving ################
+
+```{r}
+
+
+write_rds(sim_data, file = "../data/preprocessed_data.rds")
+
+#write_rds(main_task_pre3, file = "output_data/preprocessed_data_no_outliers.rds")
+
+
+```

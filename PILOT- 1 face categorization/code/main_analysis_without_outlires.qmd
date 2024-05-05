@@ -83,11 +83,11 @@ data_demo <- read_csv("../Data/data_exp_143127-v17_questionnaire-jj6n_demo_all_l
 ```{r}
 #| code-fold: true
 
-att_check <- att_check|>
+att_check <- att_check |>
   colnames_to_underscores() |>
   dplyr::filter(str_detect(Zone_Type, pattern = "endValue")) |>
-  select(Participant_Private_ID, Response) |>
-  mutate(Participant_Private_ID = factor(Participant_Private_ID))
+  dplyr::select(Participant_Private_ID, Response) |>
+  dplyr::mutate(Participant_Private_ID = factor(Participant_Private_ID))
 
 
 ```
@@ -101,7 +101,7 @@ Identifying who failed the attention checks (answer \> 5)
 
 failed_IDs <- att_check |>
   dplyr::filter(Response > 5) |>
-  select(Participant_Private_ID)
+  dplyr::select(Participant_Private_ID)
 ```
 
 ## Data cleaning and Outlier Detection:
@@ -113,13 +113,13 @@ failed_IDs <- att_check |>
 
 ```{r}
 #| code-fold: true
-
+library(dplyr)
 data_participants <- rbind(data_categorization_Arab_first,data_categorization_jwish_first)|>
   colnames_to_underscores() |>
   dplyr::filter(!(Participant_Private_ID %in% failed_IDs$Participant_Private_ID)) |>
   dplyr::filter(display %in% c("task_Jewish", "task_Arab")) |> # removing instructions screens
   dplyr::filter(Zone_Type == "response_slider_endValue") |> # only subjects answers
-  select(Participant_Private_ID, Response, image, Reaction_Time, display, Task_Name) |>
+  dplyr::select(Participant_Private_ID, Response, image, Reaction_Time, display, Task_Name) |>
   mutate(Participant_Private_ID = factor(Participant_Private_ID),
          image = factor(image),
          Task_Name = factor(Task_Name),
@@ -134,7 +134,8 @@ data_participants <- rbind(data_categorization_Arab_first,data_categorization_jw
 num_participants <- n_distinct(data_participants$Participant_Private_ID)
 ```
 
-data set without the subject- 
+data set without the subject-
+
 ```{r}
 exclude_participant_IDs <- c("10528079", "10515904", "10520649", "10529232")  
 
@@ -168,20 +169,8 @@ Density plots for participants' responses based on the dysplay conditions, label
 #| label: Responses by display
 #| fig-cap: "Subjects responses by display"
 
-density_plot2 <- ggplot(data_cleaned_without_some_subjects, aes(x = Response, fill = display)) + 
-  geom_density(alpha = 0.5) + # Plot density
-  geom_rug(aes(color = display), sides = "b") + # Add rug plot at the bottom
-  scale_fill_brewer(palette = "Pastel1") + # Use Pastel1 palette for fill
-  scale_color_brewer(palette = "Pastel1") + # Use Pastel1 palette for rug and mean line colors
-  theme_minimal() + 
-  labs(title = "Density of Ratings by Display", x = "Rating", y = "Density") +
-  geom_vline(data = data_cleaned_without_some_subjects %>% group_by(display) |> 
-               summarise(mean_response = mean(Response, na.rm = TRUE)),
-             aes(xintercept = mean_response),
-             linetype = "dashed", color = "black", size = 0.5) 
-print(density_plot2)
 # same but with outliers
-density_plot2B <- ggplot(data_participants_without_all, aes(x = Response, fill = display)) + 
+density_plot <- ggplot(data_participants_without_all, aes(x = Response, fill = display)) + 
   geom_density(alpha = 0.5) + # Plot density
   geom_rug(aes(color = display), sides = "b") + # Add rug plot at the bottom
   scale_fill_brewer(palette = "Pastel1") + # Use Pastel1 palette for fill
@@ -192,16 +181,15 @@ density_plot2B <- ggplot(data_participants_without_all, aes(x = Response, fill =
                summarise(mean_response = mean(Response, na.rm = TRUE)),
              aes(xintercept = mean_response),
              linetype = "dashed", color = "black", size = 0.5) 
-print(density_plot2B)
 
 
-ggsave("density_plot_without_outliers_subjects.png", density_plot2, path = "../Plots/", width = 10, height = 8, units = "in", bg = "white")
+
+ggsave("density_plot_without_some_subjects.png", density_plot, path = "../Plots_outliers/", width = 10, height = 8, units = "in", bg = "white")
 ```
 
 ### Detecting outlires
 
 Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
-
 
 Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
 
@@ -263,7 +251,7 @@ A table showing the average standard deviation of each subject's ratings beyond 
 ```{r}
 #| code-fold: true
 
-participant_sd_ratings <- data_cleaned_without_some_subjects |>
+participant_sd_ratings <- data_participants_without_all |>
   group_by(Participant_Private_ID) |>
   summarise(SD_of_Ratings = sd(Response, na.rm = TRUE)) |>
   ungroup()
@@ -287,7 +275,7 @@ Examining how the order of conditions affects ratings of images as "Arab" or "Je
 #| code-fold: true
 
 # Visualization of order effects
-order_effect_plot <- ggplot(data_cleaned_without_some_subjects, aes(x = order_of_conditions, y = Response, fill = display)) +
+order_effect_plot <- ggplot(data_participants_without_all, aes(x = order_of_conditions, y = Response, fill = display)) +
   geom_boxplot() +
   stat_summary(fun = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..), width = 0.75, color = "red") +
   facet_wrap(~display, scales = "free") +
@@ -300,21 +288,8 @@ order_effect_plot <- ggplot(data_cleaned_without_some_subjects, aes(x = order_of
         text = element_text(color = "black")) + # Ensure text is black
   scale_fill_brewer(palette = "Pastel1")
 
-#same but with outliers
-order_effect_plotB <- ggplot(data_participants_without_all, aes(x = order_of_conditions, y = Response, fill = display)) +
-  geom_boxplot() +
-  stat_summary(fun = mean, geom = "errorbar", aes(ymax = ..y.., ymin = ..y..), width = 0.75, color = "red") +
-  facet_wrap(~display, scales = "free") +
-  labs(title = "Order Effect on Ratings",
-       x = "Order of Conditions",
-       y = "Rating") +
-  theme_minimal() +
-  theme(plot.background = element_rect(fill = "white"), # Set plot background to white
-        panel.background = element_rect(fill = "white"), # Ensure panel background is white
-        text = element_text(color = "black")) + # Ensure text is black
-  scale_fill_brewer(palette = "Pastel1")
 
-ggsave("order_effect_without_outlires.png", order_effect_plot, path = "../Plots/", width = 4000, height = 4000, units = "px")
+ggsave("order_effect_without_outlires.png", order_effect_plot, path = "../Plots_outliers/", width = 4000, height = 4000, units = "px")
 
 
 ```
@@ -324,34 +299,20 @@ Perform a t-test to see if there's a significant difference in ratings between o
 ```{r}
 #| code-fold: true
 
-mean_ratings_by_order <- data_cleaned_without_some_subjects |>
+mean_ratings_by_order <- data_participants_without_all |>
   group_by(order_of_conditions, display) |>
   summarise(mean_rating = mean(Response, na.rm = TRUE), .groups = 'drop') |>
   pivot_wider(names_from = display, values_from = mean_rating)
 
 
 t_test_result_jewish <- t.test(Response ~ order_of_conditions,
-                               data = dplyr::filter(data_cleaned_without_some_subjects, display == "task_Jewish"),
-                               alternative = "two.sided")
-
-t_test_result_arab <- t.test(Response ~ order_of_conditions,
-                             data = dplyr::filter(data_cleaned_without_some_subjects, display == "task_Arab"),
-                             alternative = "two.sided")
-
-
-mean_ratings_by_orderB <- data_participants_without_all |>
-  group_by(order_of_conditions, display) |>
-  summarise(mean_rating = mean(Response, na.rm = TRUE), .groups = 'drop') |>
-  pivot_wider(names_from = display, values_from = mean_rating)
-
-
-t_test_result_jewishB <- t.test(Response ~ order_of_conditions,
                                data = dplyr::filter(data_participants_without_all, display == "task_Jewish"),
                                alternative = "two.sided")
 
-t_test_result_arabB <- t.test(Response ~ order_of_conditions,
+t_test_result_arab <- t.test(Response ~ order_of_conditions,
                              data = dplyr::filter(data_participants_without_all, display == "task_Arab"),
                              alternative = "two.sided")
+
 
 
 
@@ -362,29 +323,22 @@ t_test_result_arabB <- t.test(Response ~ order_of_conditions,
 ```{r}
 #| code-fold: true
 
-t_test_results_without_outlires <- data.frame(
+t_test_results_without_all <- data.frame(
   Display = c("Jewish", "Arab"),
   Statistic = c(t_test_result_jewish$statistic, t_test_result_arab$statistic),
   P_Value = c(t_test_result_jewish$p.value, t_test_result_arab$p.value)  # Difference of means, NA for the second row
 )
 
 # Create a table from the results
-kable(t_test_results_without_outlires, caption = "T-Test Results for Jewish and Arab Displays", format = "markdown")
+kable(t_test_results_without_all, caption = "T-Test Results for Jewish and Arab Displays", format = "markdown")
 
-t_test_results_without_outliresB <- data.frame(
-  Display = c("Jewish", "Arab"),
-  Statistic = c(t_test_result_jewishB$statistic, t_test_result_arabB$statistic),
-  P_Value = c(t_test_result_jewishB$p.value, t_test_result_arabB$p.value)  # Difference of means, NA for the second row
-)
 
-# Create a table from the results
-kable(t_test_results_without_outliresB, caption = "T-Test Results for Jewish and Arab Displays", format = "markdown")
 
 ```
 
 ## Main task
 
-### Difference of means per image by display
+### Difference of means per image by display with a cutoff of **10** points difference between the ratings
 
 -   Analyze the main task by calculating and comparing mean responses for different image categories.
 -   Identify significant differences in means and categorize images based on these differences.
@@ -392,7 +346,7 @@ kable(t_test_results_without_outliresB, caption = "T-Test Results for Jewish and
 ```{r}
 #| code-fold: true
 
-data_images <- data_cleaned_without_some_subjects |>
+data_images_10<- data_participants_without_all |>
   group_by(image, Participant_Private_ID) |>
   #dplyr::filter(!(Participant_Private_ID %in% exclude_participant_IDs))|>
   dplyr::summarize(
@@ -411,21 +365,49 @@ data_images <- data_cleaned_without_some_subjects |>
       avg_diff > 10 ~ "Jewish",
       TRUE ~ "Ambiguous"
     )
-  )
+  )|>
+  mutate(avg_diff = abs(avg_diff)) |>
+  arrange(avg_diff)
 
-data_images_big_diff <- data_images |>
+data_images_big_diff_10 <- data_images_10 |>
   dplyr::filter(abs(avg_diff) >= 10) |>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
-data_images_choosen <- data_images |>
+
+
+data_images_choosen_10 <- data_images_10 |>
   dplyr::filter(abs(avg_diff)<10)|>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
+kable(data_images_10, caption = "Difference of means with a cutoff of 10 points")
 
 
-data_imagesB <- data_participants_without_all |>
+
+
+saveRDS(data_images_10, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
+```
+
+Summary Table:
+
+```{r}
+#| code-fold: true
+
+summary_table_10 <- data_images_10 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+kable(summary_table_10, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
+```
+
+#### Difference of means per image by display with a cutoff of **15** points difference between the ratings
+
+```{r}
+#| code-fold: true
+
+data_images_15<- data_participants_without_all |>
   group_by(image, Participant_Private_ID) |>
   #dplyr::filter(!(Participant_Private_ID %in% exclude_participant_IDs))|>
   dplyr::summarize(
@@ -440,22 +422,108 @@ data_imagesB <- data_participants_without_all |>
     .groups = 'drop') |># Classify based on the average difference
   mutate(
     rated_ethnicity = case_when(
-      avg_diff < -10 ~ "Arab",
-      avg_diff > 10 ~ "Jewish",
+      avg_diff < -15 ~ "Arab",
+      avg_diff > 15 ~ "Jewish",
       TRUE ~ "Ambiguous"
     )
-  )
+  )|>
+  mutate(avg_diff = abs(avg_diff)) |>
+  arrange(avg_diff)
 
-data_images_big_diffB <- data_imagesB |>
-  dplyr::filter(abs(avg_diff) >= 10) |>
+data_images_big_diff_15 <- data_images_15 |>
+  dplyr::filter(abs(avg_diff) >= 15) |>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
-data_images_choosenB <- data_imagesB |>
-  dplyr::filter(abs(avg_diff)<10)|>
+data_images_choosen_15 <- data_images_15 |>
+  dplyr::filter(abs(avg_diff)<15)|>
   mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
                                      avg_diff > 0 ~ "Jewish",
                                      .default = NA))
+
+kable(data_images_15, caption = "Difference of means with a cutoff of 15 points")
+
+
+
+
+
+saveRDS(data_images_15, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
+```
+
+Summary Table:
+
+```{r}
+#| code-fold: true
+
+summary_table_15 <- data_images_15 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+kable(summary_table_15, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
+
+```
+
+#### Difference of means per image by display with a cutoff of **20** points difference between the ratings
+
+```{r}
+#| code-fold: true
+
+data_images_20<- data_participants_without_all |>
+  group_by(image, Participant_Private_ID) |>
+  #dplyr::filter(!(Participant_Private_ID %in% exclude_participant_IDs))|>
+  dplyr::summarize(
+    task_Jewish = mean(Response[display == "task_Jewish"], na.rm = TRUE),
+    task_Arab = mean(Response[display == "task_Arab"], na.rm = TRUE),
+    .groups = 'drop'  ) |> # Calculate the difference in ratings for each participant and image
+  mutate(diff_per_participant = task_Jewish - task_Arab) |>
+  # Aggregate at the image level
+  group_by(image) |>
+  dplyr::summarize(
+    avg_diff = mean(diff_per_participant, na.rm = TRUE),
+    .groups = 'drop') |># Classify based on the average difference
+  mutate(
+    rated_ethnicity = case_when(
+      avg_diff < -20 ~ "Arab",
+      avg_diff > 20 ~ "Jewish",
+      TRUE ~ "Ambiguous"
+    )
+  )|>
+  mutate(avg_diff = abs(avg_diff)) |>
+  arrange(avg_diff)
+
+data_images_big_diff_20 <- data_images_20 |>
+  dplyr::filter(abs(avg_diff) >= 20) |>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+data_images_choosen_20 <- data_images_20 |>
+  dplyr::filter(abs(avg_diff)<20)|>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+
+kable(data_images_20, caption = "Difference of means with a cutoff of 20 points")
+
+write.csv(data_images_20, "data_images_20_all.csv", row.names = FALSE)
+
+
+
+saveRDS(data_images_20, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
+```
+
+Summary Table:
+
+```{r}
+#| code-fold: true
+
+
+summary_table_20 <- data_images_20 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+kable(summary_table_20, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
 
 ```
 
@@ -463,7 +531,6 @@ data_images_choosenB <- data_imagesB |>
 
 -   Analyze the main task by calculating and comparing mean responses for different image categories.
 -   Identify significant differences in means and categorize images based on these differences.
-
 
 ## Visualization with ggplot2:
 
@@ -474,7 +541,7 @@ Visualizing image ratings in both display forms.
 ```{r}
 #| code-fold: true
 
-plot_images <- data_cleaned_without_some_subjects |>
+plot_images <- data_participants_without_all |>
   group_by(display, image) |>
   mutate(per_condition_mean = mean(Response, na.rm = T)) |>
   #filter(str_detect(image, pattern = "20")) |>
@@ -486,78 +553,45 @@ plot_images <- data_cleaned_without_some_subjects |>
   theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
   theme_classic()
 
-plot_imagesB <- data_participants_without_all |>
-  group_by(display, image) |>
-  mutate(per_condition_mean = mean(Response, na.rm = T)) |>
-  #filter(str_detect(image, pattern = "20")) |>
-  ggplot(aes(x = display, y = Response)) +
-  geom_point() +
-  geom_point(aes(y = per_condition_mean, color = "red"), show.legend = F) +
-  facet_wrap(~image, scales = "fixed") +
-  scale_y_continuous(labels = seq(0, 100, 10), breaks = seq(0, 100, 10)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
-  theme_classic()
 
-ggsave("plot_images_without_outlires.png", plot = plot_images, path = "../Plots/", width = 4000, height = 4000, units = "px")
-ggsave("plot_images_without_all.png", plot = plot_imagesB, path = "../Plots/", width = 4000, height = 4000, units = "px")
+
+
+ggsave("plot_images_without_all.png", plot = plot_images, path = "../Plots_outliers/", width = 4000, height = 4000, units = "px")
 
 ```
 
-![Overall trends per image by display](../Plots/plot_images.png)
+![Overall trends per image by display](../Plots_outliers/plot_images_without_all.png)
 
+### Responses and overall trends per image by display and *Order of conditions*
+
+```{r}
+#| code-fold: true
+
+data_participants <- data_participants_without_all |>
+  group_by(display, image, order_of_conditions) |>
+  mutate(per_condition_mean = mean(Response, na.rm = TRUE)) |>
+  ungroup()
+
+plot_image_condition <- data_participants |>
+  mutate(order = case_when(display == "task_Arab" & order_of_conditions == "ArabFirst" ~ "First",
+                           display == "task_Jewish" & order_of_conditions == "JewishFirst" ~ "First",
+                           .default = "Second")) |>
+  ggplot(aes(y = Response, x = order, fill = display)) +
+  geom_violin(position = "dodge", color = "gray34") +
+  geom_point(aes(y = per_condition_mean), position = position_dodge(.9), color = "red", show.legend = F) +
+  facet_wrap(~image)
+
+# Save the modified plot
+ggsave("plot_images_order_condition_separated.png", plot = plot_image_condition,path = "../Plots_outliers/", width = 40, height = 40, units = "cm", bg = "white", limitsize = FALSE)
+
+```
+
+![Overall trends per image by display](../Plots_outliers/plot_images_order_condition_separated.png)
 
 ```{r}
 #| code-fold: true
 #| results: hide
 
-# Ensure the data is grouped and then summarize
-data_wide <- data_cleaned_without_some_subjects |>
-  group_by(image, display) |>
-  dplyr::summarize(mean_response = mean(Response, na.rm = TRUE), .groups = 'drop') 
-
-# Reshaping the data to wide format
-data_wide <- data_wide |>
-  pivot_wider(names_from = display, values_from = mean_response)
-
-# Calculating the difference
-data_diff <- data_wide |>
-  mutate(diff = abs(`task_Arab` - `task_Jewish`), # Replace with your actual display column names
-         diff_less_than_22 = ifelse(diff < 10, "same", "no_same"))
-
-# Merging the difference back into the original data
-data_participants1 <- data_cleaned_without_some_subjects |>
-  left_join(data_diff, by = "image")
-
-data_participants1 <- data_participants1 |>
-  group_by(image, display) |>
-  mutate(per_condition_mean = mean(Response, na.rm = TRUE)) |>
-  ungroup()
-
-# Creating the plot
-plot1 <- data_participants1 |>
-  ggplot(aes(x = display, y = Response, color = diff_less_than_22)) +
-  geom_point() +
-  geom_point(aes(y = per_condition_mean, color = "mean"), show.legend = F) +
-  facet_wrap(~image, scales = "fixed") +
-  scale_y_continuous(labels = seq(0, 100, 10), breaks = seq(0, 100, 10)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
-  theme_classic() +
-  scale_color_manual(values = c("same" = "#E84646", "no_same" = "black", "mean" = "#7B8FD4"))
-
-
-# Display the plot
-
-ggsave("plot1_without_outlires.png", plot = plot1, path = "../Plots/", width = 4000, height = 4000, units = "px")
-
-
-
-
-```
-
-![alt text: Overall trends per image by display,](../Plots/plot1.png)
-
-
-```{r}
 # Ensure the data is grouped and then summarize
 data_wide <- data_participants_without_all |>
   group_by(image, display) |>
@@ -582,7 +616,7 @@ data_participants1 <- data_participants1 |>
   ungroup()
 
 # Creating the plot
-plot1B <- data_participants1 |>
+plot1 <- data_participants1 |>
   ggplot(aes(x = display, y = Response, color = diff_less_than_22)) +
   geom_point() +
   geom_point(aes(y = per_condition_mean, color = "mean"), show.legend = F) +
@@ -595,10 +629,14 @@ plot1B <- data_participants1 |>
 
 # Display the plot
 
-ggsave("plot1_without_all.png", plot = plot1B, path = "../Plots/", width = 5000, height = 5000, units = "px")
+ggsave("plot1_without_all.png", plot = plot1, path = "../Plots_outliers/", width = 4000, height = 4000, units = "px")
+
+
 
 
 ```
+
+![alt text: Overall trends per image by display,](../Plots_outliers/plot1_without_all.png)
 
 ### Participants ratings- individual participant responses and overall trends
 
@@ -607,62 +645,37 @@ ggsave("plot1_without_all.png", plot = plot1B, path = "../Plots/", width = 5000,
 #| label: Participants ratings
 #| fig-cap: "Individual participant responses"
 
-plot_participants <- data_cleaned_without_some_subjects |>
+participant_conditions <- data_participants_without_all |>
+  distinct(Participant_Private_ID, order_of_conditions) |>
+  mutate(label = paste(Participant_Private_ID, ifelse(order_of_conditions == "JewishFirst", "Jewish first", "Arab first")))
+
+
+
+plot_participants_condLabel <- data_participants_without_all |>
   group_by(Participant_Private_ID, display) |>
-  mutate(participant_mean = mean(Response, na.rm = T)) |>
+  mutate(participant_mean = mean(Response, na.rm = TRUE)) |>
   ggplot(aes(x = display, y = Response)) +
   geom_point() +
-  geom_point(aes(y = participant_mean, color = "red"), show.legend = F) +
- # geom_label_repel(aes(y = participant_mean, label = participant_mean)) +
-  facet_wrap(~Participant_Private_ID) +
-  scale_x_discrete(labels = c("Arab", "Jewish")) +
+  geom_point(aes(y = participant_mean, color = "red"), show.legend = FALSE) +  # Highlighting participant mean
+  facet_wrap(~Participant_Private_ID, labeller = as_labeller(setNames(participant_conditions$label, participant_conditions$Participant_Private_ID))) +
+  scale_x_discrete(labels = c("Arab" = "Arab", "Jewish" = "Jewish")) +
   scale_y_continuous(breaks = seq(0, 100, 10), labels = seq(0, 100, 10)) +
   labs(x = "") +
   theme_classic()
 
 
-ggsave("plot_participants_without_outlires.png", plot = plot_participants, path = "../Plots/", width = 4000, height = 4000, units = "px")
-
-plot_participantsB <- data_participants_without_all |>
-  group_by(Participant_Private_ID, display) |>
-  mutate(participant_mean = mean(Response, na.rm = T)) |>
-  ggplot(aes(x = display, y = Response)) +
-  geom_point() +
-  geom_point(aes(y = participant_mean, color = "red"), show.legend = F) +
- # geom_label_repel(aes(y = participant_mean, label = participant_mean)) +
-  facet_wrap(~Participant_Private_ID) +
-  scale_x_discrete(labels = c("Arab", "Jewish")) +
-  scale_y_continuous(breaks = seq(0, 100, 10), labels = seq(0, 100, 10)) +
-  labs(x = "") +
-  theme_classic()
-
-
-ggsave("plot_participants_without_all.png", plot = plot_participantsB, path = "../Plots/", width = 4000, height = 4000, units = "px")
+ggsave("plot_participants_without_all_label.png", plot = plot_participants_condLabel, path = "../Plots_outliers/", width = 4000, height = 4000, units = "px")
 ```
 
-![alt text: Participants ratings](images/plot.png)
+![alt text: Participants ratings](../Plots_outliers/plot_participants_without_all_label.png)
 
 Adding lines that connects between the ratings of each image:
 
 ```{r}
 #| code-fold: true
 
-#plot_participants12 <- data_participants |>
-  #group_by(Participant_Private_ID, image, display) |>  # Keep 'display' in the grouping
-  #mutate(participant_mean = mean(Response, na.rm = TRUE)) |>
-  #ggplot(aes(x = display, y = Response, group = interaction(Participant_Private_ID, image), color = interaction(Participant_Private_ID, image))) +  # interaction() combines the participant ID and image ID for grouping
-  #geom_point(aes(y = participant_mean), color = "red", show.legend = FALSE) +
-  #geom_point() +
-  #geom_line(aes(group = interaction(Participant_Private_ID, image)), color = "gray65") +
-  #facet_wrap(~Participant_Private_ID) +
-  #scale_x_discrete(labels = c("Arab", "Jewish")) +
-  #scale_y_continuous(breaks = seq(0, 100, 10), labels = seq(0, 100, 10)) +
-  #labs(x = "") +
-  #theme_classic()
 
-
-
-plot_participants_with_line <- data_cleaned_without_some_subjects |>
+plot_participants_with_line <- data_participants_without_all |>
   ggplot(aes(x = display, y = Response)) +
   geom_smooth(aes(x = display, y = Response, group = image), method = "lm", color = "gray84", se = F, inherit.aes = F) +
   geom_smooth(aes(group = -1), method = "lm", se = F, color = "red") +
@@ -671,24 +684,11 @@ plot_participants_with_line <- data_cleaned_without_some_subjects |>
   theme_classic()
 
 
-ggsave("plot_line_participants_without_outlires.png", plot = plot_participants_with_line, path = "../Plots/", width = 4000, height = 4000, units = "px")
+ggsave("plot_line_participants_without_All.png", plot = plot_participants_with_line, path = "../Plots_outliers/", width = 4000, height = 4000, units = "px")
 
-plot_participants_with_line
-
-
-plot_participants_with_lineB <- data_participants_without_all |>
-  ggplot(aes(x = display, y = Response)) +
-  geom_smooth(aes(x = display, y = Response, group = image), method = "lm", color = "gray84", se = F, inherit.aes = F) +
-  geom_smooth(aes(group = -1), method = "lm", se = F, color = "red") +
-  facet_wrap(~Participant_Private_ID) +
-  scale_y_continuous(limits = c(0, 100)) +
-  theme_classic()
-
-
-ggsave("plot_line_participants_without_All.png", plot = plot_participants_with_lineB, path = "../Plots/", width = 4000, height = 4000, units = "px")
-
-plot_participants_with_line
 ```
+
+![alt text: Participants ratings](../Plots_outliers/plot_line_participants_without_All.png)
 
 ## Demographics
 
@@ -709,7 +709,7 @@ data_demo <- data_demo |>
   select(Participant_Private_ID, Question_Key, Response) |>
   pivot_wider(names_from = Question_Key, values_from = Response)
 
-data_demo$gender[3] <- "אישה"
+#data_demo$gender[3] <- "אישה"
 ```
 
 ```{r}
@@ -854,11 +854,16 @@ demo_table <- flextable::summarizor(demo_wide_clean[,-1], overall_label = "overa
 ```{r}
 #| code-fold: true
 
-ggplot(demo_wide_clean, aes(x = education)) +
-  geom_histogram(stat = "count") +
-  scale_y_continuous(breaks = seq(0, 200, 10)) +
-  theme_classic()
+education_levels <- c('1' = 'Part of Primary School', '2' = 'Finished Primary School', '3' =  'Part of High School', '4' = 'Finished High School', '5' = 'In Bachelor\'s Degree', '6' = 'Finished Bachelor\'s Degree', '7' = 'Master\'s Degree', '8' = 'Prefer not to answer')
 
+demo_wide_clean$education <- factor(demo_wide_clean$`education-quantised`, levels = c('1', '2', '3', '4', '5', '6', '7', '8'), labels = c('Part of Primary School', 'Finished Primary School', 'Part of High School', 'Finished High School', 'In Bachelor\'s Degree', 'Finished Bachelor\'s Degree', 'Master\'s Degree', 'Prefer not to answer'))
+
+
+ggplot(demo_wide_clean, aes(x = education)) +
+  geom_bar() +
+  scale_y_continuous(breaks = seq(0, 200, 10)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
 
@@ -909,3 +914,470 @@ SES_stats_df <- data.frame(
 kable(SES_stats_df, caption = "Summary Statistics for SES", format = "markdown")
 
 ```
+
+# **Same Analysis, when calculating only the first rating**
+
+Adding a new column to identify the initial responses, those presented during the first condition only.
+
+```{r}
+#| code-fold: true
+
+data_participants_order <- data_participants_without_all |>
+  mutate(order = case_when(
+    display == "task_Arab" & order_of_conditions == "ArabFirst" ~ "First",
+    display == "task_Jewish" & order_of_conditions == "JewishFirst" ~ "First",
+    TRUE ~ "Second"  # Note the change here from '.default' to 'TRUE'
+  ))
+data_participants_first_only <- data_participants_order |>
+  filter(order == "First")
+
+```
+
+```{r}
+#| code-fold: true
+#| warning: false
+#| label: Responses by display first
+#| fig-cap: "Subjects responses by display first"
+
+# same but with outliers
+density_plot_first <- ggplot(data_participants_first_only, aes(x = Response, fill = display)) + 
+  geom_density(alpha = 0.5) + # Plot density
+  geom_rug(aes(color = display), sides = "b") + # Add rug plot at the bottom
+  scale_fill_brewer(palette = "Pastel1") + # Use Pastel1 palette for fill
+  scale_color_brewer(palette = "Pastel1") + # Use Pastel1 palette for rug and mean line colors
+  theme_minimal() + 
+  labs(title = "Density of Ratings by Display", x = "Rating", y = "Density") +
+  geom_vline(data = data_participants_first_only %>% group_by(display) |> 
+               summarise(mean_response = mean(Response, na.rm = TRUE)),
+             aes(xintercept = mean_response),
+             linetype = "dashed", color = "black", size = 0.5) 
+
+
+
+ggsave("density_plot_only_first.png", density_plot_first, path = "../Plots_first/", width = 10, height = 8, units = "in", bg = "white")
+```
+
+### SD table
+
+A table showing the average standard deviation of each subject's ratings beyond display types
+
+```{r}
+#| code-fold: true
+
+participant_sd_ratings_first <- data_participants_first_only |>
+  group_by(Participant_Private_ID) |>
+  summarise(SD_of_Ratings = sd(Response, na.rm = TRUE)) |>
+  ungroup()
+
+kable(participant_sd_ratings_first, caption = "Standard Deviation of Ratings for Each Participant")
+
+
+```
+
+## Main task
+
+### A Betwwen subjects Analysis: Difference of means per image by display with a cutoff of **10** points difference between the ratings
+
+-   Analyze the main task by calculating and comparing mean responses for different image categories.
+-   Identify significant differences in means and categorize images based on these differences.
+
+```{r}
+#| code-fold: true
+
+
+data_images_comparison_10 <- data_participants_first_only |>
+  group_by(image, display) |>
+  summarize(average_rating = mean(Response, na.rm = TRUE), .groups = 'drop') |>
+  spread(key = display, value = average_rating) |>
+  mutate(avg_diff = `task_Jewish` - `task_Arab`) |>
+  mutate(rated_ethnicity = case_when(
+    avg_diff < -10 ~ "Arab",
+    avg_diff > 10 ~ "Jewish",
+    TRUE ~ "Ambiguous"
+  )) |>
+  mutate(avg_diff = abs(avg_diff)) |>
+  arrange(avg_diff)
+  
+
+
+data_images_big_diff_10_first <- data_images_comparison_10 |>
+  dplyr::filter(abs(avg_diff) >= 10) |>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+
+
+data_images_choosen_10_first <- data_images_comparison_10 |>
+  dplyr::filter(abs(avg_diff)<10)|>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+kable(data_images_comparison_10, caption = "Difference of means with a cutoff of 10 points")
+
+
+
+
+saveRDS(data_images_10, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
+```
+
+Summary Table:
+
+```{r}
+#| code-fold: true
+
+summary_table_10 <- data_images_comparison_10 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+kable(summary_table_10, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
+```
+
+## Comparing rating when taking into account all conditions VS only the first display:
+
+Lets compare between the images when calculating the ratings based on all conditions VS when calculating only the first ratings:
+
+```{r}
+#| code-fold: true
+
+ambiguous_images_comparison_10 <- merge(data_images_10, data_images_comparison_10, by = "image", suffixes = c("_all", "_first"))
+
+# Extracting 'Ambiguous' images from both datasets
+ambiguous_images_all_10 = filter(data_images_10, rated_ethnicity == "Ambiguous")$image
+ambiguous_images_first_10 = filter(data_images_comparison_10, rated_ethnicity == "Ambiguous")$image
+
+# Finding common 'Ambiguous' images in both datasets
+common_ambiguous_images_10 = intersect(ambiguous_images_all_10, ambiguous_images_first_10)
+
+# Finding 'Ambiguous' images unique to the all conditions dataset
+unique_ambiguous_all_10 = setdiff(ambiguous_images_all_10, ambiguous_images_first_10)
+
+# Finding 'Ambiguous' images unique to the first ratings dataset
+unique_ambiguous_first_10 = setdiff(ambiguous_images_first_10, ambiguous_images_all_10)
+
+# Creating a summary table
+summary_comparison_10 <- tibble(
+  Common_Ambiguous_10 = length(common_ambiguous_images_10),
+  Unique_Ambiguous_All_10 = length(unique_ambiguous_all_10),
+  Unique_Ambiguous_First_10 = length(unique_ambiguous_first_10)
+)
+
+# Display the summary
+knitr::kable(summary_comparison_10, 
+             caption = "Comparison of Ambiguous Images Across Different Conditions 10",
+             align = 'c')
+
+
+
+```
+
+Now let's see the images id:
+
+```{r}
+#| code-fold: true
+
+common_ambiguous_images_df_10 <- tibble(Image = common_ambiguous_images_10, Category = "Common Ambiguous")
+unique_ambiguous_all_df_10 <- tibble(Image = unique_ambiguous_all_10, Category = "Unique Ambiguous All")
+unique_ambiguous_first_df_10 <- tibble(Image = unique_ambiguous_first_10, Category = "Unique Ambiguous First")
+
+ambiguous_images_comparison_df_10 <- bind_rows(common_ambiguous_images_df_10, unique_ambiguous_all_df_10, unique_ambiguous_first_df_10)
+
+# Display the comprehensive comparison
+knitr::kable(ambiguous_images_comparison_df_10, 
+             caption = "Comparison of Ambiguous Images Between All Conditions and First Ratings 10",
+             align = 'c')
+```
+
+#### Difference of means per image by display with a cutoff of **15** points difference between the ratings
+
+```{r}
+#| code-fold: true
+
+data_images_comparison_15 <- data_participants_first_only |>
+  group_by(image, display) |>
+  summarize(average_rating = mean(Response, na.rm = TRUE), .groups = 'drop') |>
+  spread(key = display, value = average_rating) |>
+  mutate(avg_diff = `task_Jewish` - `task_Arab`) |>
+  mutate(rated_ethnicity = case_when(
+    avg_diff < -15 ~ "Arab",
+    avg_diff > 15 ~ "Jewish",
+    TRUE ~ "Ambiguous"
+  )) |>
+  mutate(avg_diff = abs(avg_diff)) |>
+  arrange(avg_diff)
+  
+
+
+data_images_big_diff_15_first <- data_images_comparison_15 |>
+  dplyr::filter(abs(avg_diff) >= 15) |>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+
+
+data_images_choosen_15_first <- data_images_comparison_15 |>
+  dplyr::filter(abs(avg_diff)<15)|>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+
+
+kable(data_images_comparison_15, caption = "Difference of means with a cutoff of 15 points")
+
+
+
+
+
+saveRDS(data_images_15, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
+```
+
+Summary Table:
+
+```{r}
+#| code-fold: true
+
+summary_table_15 <- data_images_comparison_15 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+kable(summary_table_15, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
+
+```
+
+## Comparing rating when taking into account all conditions VS only the first display:
+
+Lets compare between the images when calculating the ratings based on all conditions VS when calculating only the firs retings:
+
+```{r}
+#| code-fold: true
+
+ambiguous_images_comparison_15 <- merge(data_images_15, data_images_comparison_15, by = "image", suffixes = c("_all", "_first"))
+
+# Extracting 'Ambiguous' images from both datasets
+ambiguous_images_all_15 = filter(data_images_15, rated_ethnicity == "Ambiguous")$image
+ambiguous_images_first_15 = filter(data_images_comparison_15, rated_ethnicity == "Ambiguous")$image
+
+# Finding common 'Ambiguous' images in both datasets
+common_ambiguous_images_15 = intersect(ambiguous_images_all_15, ambiguous_images_first_15)
+
+# Finding 'Ambiguous' images unique to the all conditions dataset
+unique_ambiguous_all_15 = setdiff(ambiguous_images_all_15, ambiguous_images_first_15)
+
+# Finding 'Ambiguous' images unique to the first ratings dataset
+unique_ambiguous_first_15 = setdiff(ambiguous_images_first_15, ambiguous_images_all_15)
+
+# Creating a summary table
+summary_comparison_15 <- tibble(
+  Common_Ambiguous_15 = length(common_ambiguous_images_15),
+  Unique_Ambiguous_All_15 = length(unique_ambiguous_all_15),
+  Unique_Ambiguous_First_15 = length(unique_ambiguous_first_15)
+)
+
+# Display the summary
+knitr::kable(summary_comparison_15, 
+             caption = "Comparison of Ambiguous Images Across Different Conditions 15",
+             align = 'c')
+
+
+
+```
+
+Now let's see the images id:
+
+```{r}
+#| code-fold: true
+
+common_ambiguous_images_df_15 <- tibble(Image = common_ambiguous_images_15, Category = "Common Ambiguous")
+unique_ambiguous_all_df_15 <- tibble(Image = unique_ambiguous_all_15, Category = "Unique Ambiguous All")
+unique_ambiguous_first_df_15 <- tibble(Image = unique_ambiguous_first_15, Category = "Unique Ambiguous First")
+
+ambiguous_images_comparison_df_15 <- bind_rows(common_ambiguous_images_df_15, unique_ambiguous_all_df_15, unique_ambiguous_first_df_15)
+
+# Display the comprehensive comparison
+knitr::kable(ambiguous_images_comparison_df_15, 
+             caption = "Comparison of Ambiguous Images Between All Conditions and First Ratings 15",
+             align = 'c')
+```
+
+#### Difference of means per image by display with a cutoff of **20** points difference between the ratings
+
+```{r}
+#| code-fold: true
+
+data_images_comparison_20 <- data_participants_first_only |>
+  group_by(image, display) |>
+  summarize(average_rating = mean(Response, na.rm = TRUE), .groups = 'drop') |>
+  spread(key = display, value = average_rating) |>
+  mutate(avg_diff = `task_Jewish` - `task_Arab`) |>
+  mutate(rated_ethnicity = case_when(
+    avg_diff < -20 ~ "Arab",
+    avg_diff > 20 ~ "Jewish",
+    TRUE ~ "Ambiguous"
+  )) |>
+  mutate(avg_diff = abs(avg_diff)) |>
+  arrange(avg_diff)
+  
+
+
+data_images_big_diff_20_first <- data_images_comparison_20 |>
+  dplyr::filter(abs(avg_diff) >= 20) |>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+
+
+data_images_choosen_20_first <- data_images_comparison_20 |>
+  dplyr::filter(abs(avg_diff)<20)|>
+  mutate(rated_ethnicity = case_when(avg_diff < 0 ~ "Arab",
+                                     avg_diff > 0 ~ "Jewish",
+                                     .default = NA))
+
+
+
+kable(data_images_comparison_20, caption = "Difference of means with a cutoff of 20 points")
+
+
+
+
+saveRDS(data_images_20, file = "C:/Users/97252/Documents/GitHub/face_cater/PILOT- 1 face categorization/Data/final_data.rdx")
+```
+
+Summary Table:
+
+```{r}
+#| code-fold: true
+
+
+summary_table_20 <- data_images_comparison_20 |>
+  count(rated_ethnicity) |>
+  spread(key = rated_ethnicity, value = n)
+
+# Print the summary table
+kable(summary_table_20, format = "html", table.attr = "style='width:50%;'", caption = "Summary of Rated Ethnicity")
+
+```
+
+## Comparing rating when taking into account all conditions VS only the first display:
+
+Lets compare between the images when calculating the ratings based on all conditions VS when calculating only the first ratings:
+
+```{r}
+#| code-fold: true
+
+ambiguous_images_comparison_20 <- merge(data_images_20, data_images_comparison_20, by = "image", suffixes = c("_all", "_first"))
+
+# Extracting 'Ambiguous' images from both datasets
+ambiguous_images_all_20 = filter(data_images_20, rated_ethnicity == "Ambiguous")$image
+ambiguous_images_first_20 = filter(data_images_comparison_20, rated_ethnicity == "Ambiguous")$image
+
+# Finding common 'Ambiguous' images in both datasets
+common_ambiguous_images_20 = intersect(ambiguous_images_all_20, ambiguous_images_first_20)
+
+# Finding 'Ambiguous' images unique to the all conditions dataset
+unique_ambiguous_all_20 = setdiff(ambiguous_images_all_20, ambiguous_images_first_20)
+
+# Finding 'Ambiguous' images unique to the first ratings dataset
+unique_ambiguous_first_20 = setdiff(ambiguous_images_first_20, ambiguous_images_all_20)
+
+# Creating a summary table
+summary_comparison_20 <- tibble(
+  Common_Ambiguous_20 = length(common_ambiguous_images_20),
+  Unique_Ambiguous_All_20 = length(unique_ambiguous_all_20),
+  Unique_Ambiguous_First_20 = length(unique_ambiguous_first_20)
+)
+
+# Display the summary
+knitr::kable(summary_comparison_20, 
+             caption = "Comparison of Ambiguous Images Across Different Conditions 20",
+             align = 'c')
+
+
+
+```
+
+Now let's see the images id:
+
+```{r}
+#| code-fold: true
+
+common_ambiguous_images_df_20 <- tibble(Image = common_ambiguous_images_20, Category = "Common Ambiguous")
+unique_ambiguous_all_df_20 <- tibble(Image = unique_ambiguous_all_20, Category = "Unique Ambiguous All")
+unique_ambiguous_first_df_20 <- tibble(Image = unique_ambiguous_first_20, Category = "Unique Ambiguous First")
+
+ambiguous_images_comparison_df_20 <- bind_rows(common_ambiguous_images_df_20, unique_ambiguous_all_df_20, unique_ambiguous_first_df_20)
+
+# Display the comprehensive comparison
+knitr::kable(ambiguous_images_comparison_df_20, 
+             caption = "Comparison of Ambiguous Images Between All Conditions and First Ratings 20",
+             align = 'c')
+
+write.csv(ambiguous_images_comparison_df_20, "ambiguous_images_comparison_df_20.csv", row.names = FALSE)
+```
+
+## Visualization with ggplot2:
+
+### Responses and overall trends per image by display
+
+Visualizing image ratings in both display forms.
+
+```{r}
+#| code-fold: true
+
+plot_images_first <- data_participants_first_only |>
+  group_by(display, image) |>
+  mutate(per_condition_mean = mean(Response, na.rm = T)) |>
+  #filter(str_detect(image, pattern = "20")) |>
+  ggplot(aes(x = display, y = Response)) +
+  geom_point() +
+  geom_point(aes(y = per_condition_mean, color = "red"), show.legend = F) +
+  facet_wrap(~image, scales = "fixed") +
+  scale_y_continuous(labels = seq(0, 100, 10), breaks = seq(0, 100, 10)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1)) +
+  theme_classic()
+
+
+
+
+ggsave("plot_images_without_all_first.png", plot = plot_images_first, path = "../Plots_first/", width = 4000, height = 4000, units = "px")
+
+```
+
+![Overall trends per image by display](../Plots_first/plot_images_without_all_first.png)
+
+### Participants ratings- individual participant responses and overall trends
+
+Adding lines that connects between the ratings of each image:
+
+```{r}
+#| code-fold: true
+
+
+plot_participants_with_line_first <- data_participants_order |>
+  ggplot(aes(x = display, y = Response)) +
+  geom_smooth(aes(x = display, y = Response, group = image), method = "lm", color = "gray84", se = F, inherit.aes = F) +
+  geom_smooth(aes(group = -1), method = "lm", se = F, color = "red") +
+  facet_wrap(~Participant_Private_ID) +
+  scale_y_continuous(limits = c(0, 100)) +
+  theme_classic()
+
+
+ggsave("plot_line_participants_without_All.png", plot = plot_participants_with_line_first, path = "../Plots_first/", width = 4000, height = 4000, units = "px")
+
+```
+
+![alt text: Participants ratings](../Plots_first/plot_line_participants_without_All.png)
+
+## Visual stimuli:
+
+![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%201.png) ![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%202.png) ![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%203.png)
+
+![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%204.png)
+
+![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%205.png)
+
+![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%206.png)
+
+![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%207.png)
+
+![](C:/Users\97252\Documents\GitHub\face_cater\PILOT-%201%20face%20categorization\Visual_stimuli\series%208.png)

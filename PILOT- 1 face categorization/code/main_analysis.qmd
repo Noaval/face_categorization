@@ -131,6 +131,11 @@ data_participants <- rbind(data_categorization_Arab_first,data_categorization_jw
   )) |>
   rename(order_of_conditions = Task_Name)
 
+data_participants <- data_participants |>
+  mutate(order = case_when(display == "task_Arab" & order_of_conditions == "ArabFirst" ~ "First",
+                           display == "task_Jewish" & order_of_conditions == "JewishFirst" ~ "First",
+                           .default = "Second"))
+
 num_participants <- n_distinct(data_participants$Participant_Private_ID)
 ```
 
@@ -563,6 +568,12 @@ data_participants <- data_participants |>
   group_by(display, image, order_of_conditions) |>
   mutate(per_condition_mean = mean(Response, na.rm = TRUE)) |>
   ungroup()
+
+data_participants <- data_participants |>
+  mutate(order = case_when(display == "task_Arab" & order_of_conditions == "ArabFirst" ~ "First",
+                           display == "task_Jewish" & order_of_conditions == "JewishFirst" ~ "First",
+                           .default = "Second"))
+
 
 plot_image_condition <- data_participants |>
   mutate(order = case_when(display == "task_Arab" & order_of_conditions == "ArabFirst" ~ "First",

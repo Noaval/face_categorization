@@ -1,0 +1,196 @@
+---
+title: "Script_Modifications"
+format: html
+editor: visual
+---
+
+1. Defining New Image Arrays
+This part of the script is where we specify new image arrays for the second training phase. Depending on whether the participant is viewing male or female images (as determined by the EXP_COND variable), the script will shuffle and use these images:
+
+```{r}
+var Images_second_training_male = ['specific_image_1.png', 'specific_image_2.png', 'specific_image_3.png'];
+var Images_second_training_female = ['specific_image_4.png', 'specific_image_5.png', 'specific_image_6.png'];
+
+```
+
+
+2. Image Selection Function for Second Training Phase
+This function get_second_training_images() uses the experimental condition to decide which gender's images to shuffle and return. This ensures that the second training phase uses the correct images based on participant groups:
+
+```{r}
+function get_second_training_images() {
+    switch(EXP_COND.charAt(0)) {
+        case 'M':
+            return shuffle(Images_second_training_male);
+        case 'F':
+            return shuffle(Images_second_training_female);
+        default:
+            return []; // Fallback case
+    }
+}
+
+```
+
+
+3. Generating Second Training Trials
+get_second_training_trails() constructs the actual trials for the second training phase using the images selected by get_second_training_images(). For each image, it creates a trial object that includes all necessary details like type of trial, images, occupation, status, and timings:
+
+```{r}
+function get_second_training_trails() {
+    var images = get_second_training_images();
+    var Arr = [];
+    for (let i = 0; i < images.length; i++) {
+        Arr.push({
+            TrialType: 'second_training',
+            Feedback: 'No',
+            firstImage: images[i],
+            Secondimage: images[(i+1) % images.length], // Cycle through images
+            Occupation: 'Example', // Placeholder
+            OcStatus: 'Example', // Placeholder
+            Fixation1: get_randum(300, 7000),
+            Fixation2: get_randum(250, 1000),
+            SameOrDiff: 'Diff' // Or 'Same', based on your design
+        });
+    }
+    return Arr;
+}
+```
+
+4. Integration into Experiment Array
+Finally, set_Exp_Arr() integrates these new second training phase trials into the main experiment array (EXP_ARR_MAIN), which ensures they are executed in the correct sequence during the experiment:
+
+```{r}
+function set_Exp_Arr() {
+    var Exp_feedback_train = get_exp_feedbak_trails();
+    var Exp_second_train = get_second_training_trails();
+    var Exp_train_no_feedback = get_exp_train_trails();
+    var ExpRun = get_exp_run_trails();
+    EXP_ARR_MAIN = Exp_feedback_train.concat(Exp_second_train, Exp_train_no_feedback, ExpRun);
+}
+```
+
+
+
+
+## The original Script Version with the modifications
+
+
+```{r}
+// Variables:
+var EXP_COND = ""; // MKD/FKD/MDK/FDK, first letter after M/F is the SAMEKEY letter
+var Male_or_female_images = ""; // 'M' or 'F' = EXP_COND.charAt(0);
+var TimeOut = false;
+var NO_RES = false;
+
+// Image lists:
+var Images_test_female = [
+    // Add all female images from your list here
+];
+var Images_test_male = [
+    // Add all male images from your list here
+];
+var Images_training_male = ['IFD_M-420-N.png', 'IFD_M-111-N.png', 'IFD_M-042-N.png'];
+var Images_training_female = ['IFD_F-019-N.png', 'IFD_F-022-N.png', 'IFD_F-109-N.png'];
+
+// New lists for the second training phase
+var Images_second_training_male = ['specific_image_1.png', 'specific_image_2.png', 'specific_image_3.png'];
+var Images_second_training_female = ['specific_image_4.png', 'specific_image_5.png', 'specific_image_6.png'];
+
+// Occupation Lists:
+var occupation_MH_training = ['עמאר', 'מוסא'];
+var occupation_ML_training = ['שמואל', 'יהודה'];
+var occupation_FH_training = ["מהנדסת חשמל", "מפתחת תוכנה"];
+var occupation_FL_training = ["מלצרית", "טבחית"];
+var occupation_MH_test = [
+    'אחמד', 'מחמוד', 'מחמד', // Add remaining names
+];
+var occupation_ML_test = [
+    'דוד', 'משה', 'יוסף', // Add remaining names
+];
+var occupation_FH_test = [
+    'אדריכלית', 'עורכת דין', // Add remaining names
+];
+var occupation_FL_test = [
+    'מנקה', 'עובדת אשפה', // Add remaining names
+];
+
+// UI Variables:
+var LeftButton = "D";
+var RightButton = "K";
+var LeftButtonLabel = "";
+var RightButtonLabel = "";
+
+// Main experiment array:
+const EXP_ARR_MAIN = [];
+var firstTime = true;
+var trailcounter = 0;
+var traintrials = 6;
+var testtrials = 32;
+var trailcountMax = traintrials + testtrials; // 32 test trials, 6 training trials
+var SCREEN = false;
+var QuesTime = 900; // ms
+var train_answer = false; // same or diff
+
+// Event handling:
+gorillaTaskBuilder.onScreenStart((spreadsheet: any, rowIndex: number, screenIndex: number, row: any, container: string) => {
+    if (firstTime) {
+        firstTime = false;
+        set_exp_cond();
+        set_Exp_Arr();
+        set_button_view();
+        EXP_ARR_MAIN[0].Fixation1 = 4000; // for the first train
+    }
+
+    // Trial display logic here...
+});
+
+gorillaTaskBuilder.onScreenFinish((spreadsheet: any, rowIndex: number, screenIndex: number, row: any, container: string) => {
+    // Clean-up and data saving logic here...
+});
+
+// Initialize experiment condition:
+function set_exp_cond() {
+    EXP_COND = gorilla.retrieve('ExpCond', "KD", true); // KD or DK, first letter is the "same" key
+    var RandNum = Math.floor(Math.random() * 2); // rand num between 0 to 2
+    EXP_COND = "M" + EXP_COND; // Adjust based on random
+    Save_to_Data_file("", "ExpCond:" + EXP_COND);
+}
+
+// Define experiment array steps:
+function set_Exp_Arr() {
+    var Exp_feedback_train = get_exp_feedbak_trails();
+    var Exp_second_train = get_second_training_trails();
+    var Exp_train_no_feedback = get_exp_train_trails();
+    var ExpRun = get_exp_run_trails();
+    EXP_ARR_MAIN = Exp_feedback_train.concat(Exp_second_train, Exp_train_no_feedback, ExpRun);
+}
+
+// Function to generate second training trails (new):
+function get_second_training_trails() {
+    var images = get_second_training_images();
+    var Arr = [];
+    for (let i = 0; i < images.length; i++) {
+        Arr.push({
+            TrialType: 'second_training',
+            Feedback: 'No',
+            firstImage: images[i],
+            Secondimage: images[(i + 1) % images.length], // Cycle through images
+            Occupation: 'Example Occupation', // Replace with actual logic if needed
+            OcStatus: 'Example Status', // Replace with actual logic if needed
+            Fixation1: get_randum(300, 7000),
+            Fixation2: get_randum(250, 1000),
+            SameOrDiff: 'Diff' // Or 'Same', as required
+        });
+    }
+    return Arr;
+}
+
+// Function to get images for second training phase:
+function get_second_training_images() {
+    return EXP_COND.charAt(0) === 'M' ? shuffle(Images_second_training_male) : shuffle(Images_second_training_female);
+}
+
+// Additional helper functions (e.g., time_out, get_exp_feedbak_trails, etc.) remain unchanged.
+
+```
+
