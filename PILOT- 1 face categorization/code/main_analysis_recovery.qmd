@@ -212,7 +212,6 @@ contrasts(data_clean$identity)
 
 ```
 
-
 ## Looking at the data
 
 ```{r}
@@ -289,8 +288,6 @@ model_parameters(model0_rt_gaussian)
 icc(model0_rt_gaussian)
 ```
 
-
-
 ```{r}
 
 plot(posterior_predictive_check(model0_rt_gaussian))
@@ -313,9 +310,6 @@ model1_rt_gaussian <- lmer(Reaction_time ~ Ethnicity + identity + (1 | id),
 
 model_parameters(model1_rt_gaussian)
 ```
-
-
-
 
 ```{r}
 plot(posterior_predictive_check(model1_rt_gaussian))
@@ -407,8 +401,6 @@ icc(model0_rt_invGauss)
 write_rds(model0_rt_invGauss, file = "../models/model0_rt_invGauss.rds")
 ```
 
-
-
 ```{r}
 #| echo: false
 model0_rt_invGauss <- read_rds("../models/model0_rt_invGauss.rds")
@@ -418,7 +410,7 @@ model0_rt_invGauss <- read_rds("../models/model0_rt_invGauss.rds")
 plot(posterior_predictive_check(model0_rt_invGauss))
 ```
 
-** Model with just identity
+\*\* Model with just identity
 
 ```{r}
 model0.5_rt_invGauss <- glmer(Reaction_time ~ identity + (1 | id),
@@ -443,7 +435,6 @@ model0.5_rt_invGauss <- read_rds("../models/model0.5_rt_invGauss.rds")
 ```{r}
 plot(posterior_predictive_check(model0.5_rt_invGauss))
 ```
-
 
 ```{r}
 model1_rt_invGauss <- glmer(Reaction_time ~ Ethnicity + identity + (1 | id),
@@ -500,7 +491,6 @@ plot(posterior_predictive_check(model2_rt_invGauss))
 anova(model0_rt_invGauss, model0.5_rt_invGauss)
 
 ```
-
 
 ```{r}
 anova(model0_rt_invGauss, model1_rt_invGauss)
@@ -579,8 +569,7 @@ This model did not converge with, or without correlations between random effects
 
 intercept (names for Arab) + slope for identity (just for arab names) + intercept (names for Jewish) + slope for identity (just for jweish names)
 
-2||- without correlation for intercept* slope
-
+2\|\|- without correlation for intercept\* slope
 
 ```{r}
 #| eval: false
@@ -614,8 +603,6 @@ model_maximal_rt <- read_rds("../models/model_maximal_rt_invGauss.rds")
 ```
 
 No random slope for Ethnicity.
-
-
 
 ```{r}
 #| eval: false
@@ -723,9 +710,6 @@ sjPlot::tab_model(model2.2_rt, show.icc = F, show.r2 = F)
 lme4::ranef(model2.2_rt)
 ```
 
-
-
-
 #### Model comparison
 
 ```{r}
@@ -795,7 +779,8 @@ contrast(ems, list(repetition = c(0.5,0.5,-0.5,-0.5),
 Contrast in DIFF (identity_e = 1) is not significant (and not in the right direction).
 
 ## Visualizations
-## displaying the variance 
+
+## displaying the variance
 
 ```{r}
 #| code-fold: true
@@ -929,7 +914,6 @@ plot_responses
 ## Model 0
 
 *Note*- The ordinal function will be used just for making the SDT visualization at the end. It won't work now because we do not have sufficient amount of participants.
-
 
 ```{r}
 #| eval: false
@@ -1149,7 +1133,6 @@ anova(model1_ca, model2_ca)
 
 *Note*- ordinal models are only for the SDT visualization distribution. they will not work until we will have sufficient subjects.
 
-
 ```{r}
 #| eval: false
 #| echo: false
@@ -1310,7 +1293,6 @@ anova(model2.1_ca, model_maximal_ca)
 
 *NOTE*- i can only show this distribution when i will have sufficient amount of data to clculate the ordinal model.
 
-
 ```{r}
 #| code-fold: true
 #| code-summary: "ggplot helper function"
@@ -1413,8 +1395,6 @@ cmdstanr::set_cmdstan_path(path = "C:\\Users\\97252\\Documents\\.cmdstan\\cmdsta
 ## Reaction time
 
 ### Formula
-
-
 
 ```{r}
 #| eval: false

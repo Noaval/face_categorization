@@ -1,6 +1,0 @@
-"0","data_participants <- rbind(data_categorization_roei,data_categorization_shani,data_categorization_noa)|>
-  colnames_to_underscores() |>
-  filter(!(Participant_Private_ID %in% failed_IDs$Participant_Private_ID))
-"
-"2","Error: object 'data_categorization_shani' not found
-"

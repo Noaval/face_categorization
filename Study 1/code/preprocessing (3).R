@@ -1,20 +1,9 @@
----
-title: "Preprocessing"
-format: html
-editor: visual
----
-
-# -----------------------------------
-
-# ---------- Preprocessing ----------
-
-# -----------------------------------
+# -----------------------------------#
+# ---------- Preprocessing ----------#
+# -----------------------------------#
 
 # Setup ----
-
 #install.packages("textcat")
-
-```{r}
 suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(textcat)) # detecting languages
 
@@ -27,18 +16,11 @@ colnames_spaces_to_underscore <- function(data = NULL) {
 }
 
 
-```
-
 # Loading data ----
-
-```{r}
 main_task <- read_csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/data (10).csv", show_col_types = FALSE)
 
-```
 
 ## Pre-preprocessing ----
-
-```{r}
 main_task <- main_task[-nrow(main_task),] # remove last row (END OF FILE row)
 
 main_task <- colnames_spaces_to_underscore(main_task) # easier to work with colnames
@@ -63,6 +45,8 @@ main_task_pre1 <- main_task |>
   fill(Condition) |>
   ungroup() |>
 
+  
+  ??rnorm
   # Target face gender
   mutate(target_sex = case_when(str_sub(Condition, 1, 1) == "F" ~ "female",
                                 str_sub(Condition, 1, 1) == "M" ~ "male")) |>
@@ -113,11 +97,9 @@ main_task_pre1 <- main_task |>
   # Adding column holding reaction time for the second face
   mutate(Reaction_time = case_when(Screen_Name == "Screen 6" ~ Reaction_Time,
                                    .default = NA))
-```
 
-### Table2 - wo/fixations
 
-```{r}
+######### Table2 - wo/fixations #########
 main_task_pre2 <- main_task_pre1 |>
 
   # This is the row with all the data mutated before
@@ -127,11 +109,8 @@ main_task_pre2 <- main_task_pre1 |>
   select(Participant_Public_ID, Participant_Private_ID, Mode, Condition, target_sex, First_Image,
          Second_Image, Identity, Identity_answer, Correct_Identity, Name, Ethnicity, Reaction_time)
 
-```
-
 ###### Stimulating answeres:
 
-```{r}
 sim_data <- main_task_pre2 |>
   mutate(Participant_Private_ID = c("14")) |>
   mutate(Identity_answer = sample(c("Same", "Diff"), size = nrow(main_task_pre2), replace = T),
@@ -142,11 +121,9 @@ sim_data <- main_task_pre2 |>
   rbind(main_task_pre2)
 
 
-```
 
-### Testing empty responses
 
-```{r}
+########## Testing empty responses ##########
 test_summary <- sim_data |>
   group_by(Participant_Private_ID) |>
   filter(Mode == "test") |>
@@ -173,11 +150,10 @@ parameters::model_parameters(test_glm, exponentiate = T)
 
 ggeffects::ggemmeans(test_glm, terms = "trial_num [all]") |>
   plot(add.data = T, jitter = 0)
-```
 
-#### Exclusions
 
-```{r}
+######## Exclusions ########
+
 failed_participants_id <- sim_data |>
   filter(Mode == "test") |>
   group_by(Participant_Private_ID) |>
@@ -202,35 +178,61 @@ sim_data <- sim_data |>
 
   # removing NO ANSWER trials
   filter(Identity_answer != "NO ANSWER")
-```
 
-#### Outliers
+
+
+######## Outliers ########
 
 ### Detecting outlires
 
-Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
+#Identify and exclude outliers from our data set using The MAD-median rule for outlier removal as recommended by Bakker and Wicherts [-@bakker_outlier_2014].
 
-Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
+#Second option to pbtain the MAD MEDIAN ROLE for detecting outlires (better in my opinion) [link](https://statsandr.com/blog/outliers-detection-in-r/).
 
-```{r}
+
+
+#Threshold Determiantion
+
+# threshold <- 2.24
+# # Calculate the median and MAD for the Response column
+# median_response <- median(sim_data$Reaction_time, na.rm = TRUE)
+# mad_response <- mad(sim_data$Reaction_time, constant = 1, na.rm = TRUE)
+# 
+# lower_bound <- median_response - threshold * mad_response
+# upper_bound <- median_response + threshold * mad_response
+# 
+# outlier_indices <- which(sim_data$Reaction_time < lower_bound | sim_data$Reaction_time > upper_bound)
+# 
+# 
+# sim_data$is_outlier <- ifelse(sim_data$Reaction_time < lower_bound | sim_data$Reaction_time > upper_bound, 1, 0)
+# 
+# outliers <- sim_data[outlier_indices, ]
+# 
+# 
+# data_cleaned <- sim_data[!sim_data$Reaction_time %in% outliers$Response, ]
+# 
+# data_cleaned_without_some_subjects <- data_participants[!data_participants$Response %in% outliers$Response, ] |>
+#   dplyr::filter(!(Participant_Private_ID %in% exclude_participant_IDs))
+
+
+threshold <- 2.24
+
 # Define a function to calculate outliers per subject
-identify_outliers <- function(.data, threshold = 2.24) {
-  
-  median_response <- median(.data$Reaction_time, na.rm = TRUE)
-  mad_response <- mad(.data$Reaction_time, constant = 1, na.rm = TRUE)
+identify_outliers <- function(sim_data) {
+  median_response <- median(sim_data$Reaction_time, na.rm = TRUE)
+  mad_response <- mad(sim_data$Reaction_time, constant = 1, na.rm = TRUE)
   
   lower_bound <- median_response - threshold * mad_response
   upper_bound <- median_response + threshold * mad_response
   
-  .data$is_outlier <- ifelse(.data$Reaction_time < lower_bound | .data$Reaction_time > upper_bound, 1, 0)
-  return(.data)
-  
+  sim_data$is_outlier <- ifelse(sim_data$Reaction_time < lower_bound | sim_data$Reaction_time > upper_bound, 1, 0)
+  return(sim_data)
 }
 
 # Apply function per subject
-data_clean1 <- data_clean |> 
-  group_by(Participant_Private_ID) |>
-  identify_outliers()
+sim_data <- sim_data %>% 
+  group_by(Participant_Private_ID) %>%
+  do(identify_outliers(.))
 
 # Calculate the percentage of outliers per subject
 outlier_summary <- sim_data |>
@@ -240,34 +242,23 @@ outlier_summary <- sim_data |>
             Outlier_Percentage = (Outlier_Count / Total_Measures) * 100)
 
 # Identify subjects with more than 15% of measures as outliers
-subjects_to_exclude <- outlier_summary |>
-  filter(Outlier_Percentage > 15) |>
+subjects_to_exclude <- outlier_summary %>%
+  filter(Outlier_Percentage > 15) %>%
   pull(Participant_Private_ID)
-
-```
 
 set.seed(14)
 
-# test \<- data_participants \|\>
+# test <- data_participants |>
+#   #mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = T, prob = c(.8, .2))) |>
+#   filter(is_outlier == 1) |>
+#   group_by(Participant_Private_ID) |>
+#   mutate(n_trials = n()) |>
+#   mutate(bad_trials = 85*2 - n_trials) |>
+#   mutate(percent_bad_trials = n_bad_trials / (85*2)) 
+#   #filter(percent_bad_trials <= 0.2)
+# library(dplyr)  
 
-# #mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = T, prob = c(.8, .2))) \|\>
-
-# filter(is_outlier == 1) \|\>
-
-# group_by(Participant_Private_ID) \|\>
-
-# mutate(n_trials = n()) \|\>
-
-# mutate(bad_trials = 85\*2 - n_trials) \|\>
-
-# mutate(percent_bad_trials = n_bad_trials / (85\*2))
-
-# #filter(percent_bad_trials \<= 0.2)
-
-# library(dplyr)
-
-```{r}
-test1 <- sim_data |>
+test1 <- data_participants |>
   # mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = TRUE, prob = c(.8, .2))) |>
   filter(is_outlier == 1) |>
   group_by(Participant_Private_ID) |>
@@ -276,16 +267,36 @@ test1 <- sim_data |>
          percent_bad_trials = bad_trials / (85 * 2))
 
 num_participants_out <- n_distinct(test1$Participant_Private_ID)
-```
-
-################ Saving
-
-```{r}
 
 
-write_rds(sim_data, file = "../data/preprocessed_data.rds")
-
-#write_rds(main_task_pre3, file = "output_data/preprocessed_data_no_outliers.rds")
 
 
-```
+
+main_task_pre3 <- main_task_pre2 |>
+
+  # adding global means and sd's to both DV's
+  mutate(mean_rt = mean(Reaction_time, na.rm = T),
+         sd_rt = sd(Reaction_time, na.rm = T),
+         mean_ca = mean(Correct_Identity == "yes"),
+         sd_ca = sd(Correct_Identity == "yes")) |>
+
+  group_by(Participant_Private_ID) |>
+
+  # adding individual participants means and sd's on both DV's
+  mutate(mean_rt_p = mean(Reaction_time, na.rm = T),
+         mean_ca_p = mean(Correct_Identity == "yes")) |>
+
+  # filtering participants who are more than 2 SD's from the global mean on wither of the DV's
+  filter(abs(mean_rt_p - mean_rt) / sd_rt <= 2) |>
+  filter(abs(mean_ca_p - mean_ca) / sd_ca <= 2) |>
+
+  # removing helper columns
+  select(-mean_rt, -mean_rt_p, -sd_rt, -mean_ca, -mean_ca_p, -sd_ca)
+
+
+
+################ Saving ################
+write_rds(sim_data, file = "data/preprocessed_data.rds")
+
+write_rds(main_task_pre3, file = "output_data/preprocessed_data_no_outliers.rds")
+
