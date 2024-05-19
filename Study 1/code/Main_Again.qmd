@@ -1,0 +1,1689 @@
+---
+title: "Main Analysis"
+author: "Noa Valansi"
+date: last-modified
+title-block-banner: "#525266"
+execute: 
+  warning: false
+  message: false
+  cache: false
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+editor: visual
+bibliography: references.bib
+---
+
+# Analysis plan
+
+For both DV's (reaction time and answers) the plan will be similar:\
+      1. Gradually fitting models with minimum random effects (random intercept per participant). Checking what fixed effects adding significant explained variance.\
+      2. Gradually fitting models with more random effects (random slopes for Ethnicity, identity and interaction, and Nameal title). Checking what is the least complex model fitting to the data (the model containing the last random effect that added significant amount of explained variance).\
+      3. Simple slopes analysis.\
+      4. Exploratory analysis regarding target's gender (3-way interaction).
+
+# Maximal model structure
+
+Model selection will be done gradually. This is the maximum structure:
+
+## Reaction time
+
+I will check several options for modelling reaction time (Inverse Gaussian, Log-Normal and Normal), this is the Inverse Gaussian model. The Reaction time of participant $i$ in trial $j$ is:
+
+$$
+RT_{ij} \sim IG(\mu_i,\lambda)
+$$
+
+Where:
+
+Level 1:
+
+$$
+\mu_i=\beta_{0i}+\beta_{1i} \cdot identityDifferent+\beta_{2i} \cdot socialstatusARAB+\beta_{3i} \cdot identityDifferent\cdot socialstatusARAB
+$$
+
+Level 2:
+
+$$
+  \begin{bmatrix}
+        \beta_0 \cr
+        \beta_1 \cr
+        \beta_2 \cr
+        \beta_3
+  \end{bmatrix} \sim MVN(\begin{bmatrix}
+                        \gamma_{00} \cr
+                        \gamma_{10} \cr
+                        \gamma_{20} \cr
+                        \gamma_{30}
+                       \end{bmatrix},\begin{pmatrix}
+                                      \tau_0^2 & \tau_0\tau_1 \rho_{01} & \tau_0\tau_2 \rho_{02} & \tau_0\tau_3 \rho_{03} \cr
+                                      \tau_1\tau_0 \rho_{01} & \tau_1^2 & \tau_1\tau_2 \rho_{12} & \tau_1\tau_3 \rho_{13} \cr
+                                      \tau_2\tau_0 \rho_{02} & \tau_2\tau_1 \rho_{12} & \tau_2^2 & \tau_2\tau_3 \rho_{23} \cr
+                                      \tau_3\tau_0 \rho_{03} & \tau_3\tau_1 \rho_{13} & \tau_3\tau_2 \rho_{23} & \tau_3^2
+                                     \end{pmatrix})
+$$
+
+$$
+\beta_{0i}=\gamma_{00}+\tau_{0i}
+$$
+
+$$
+\beta_{1i}=\gamma_{10}+\tau_{1i}
+$$
+
+$$
+\beta_{2i}=\gamma_{20}+\tau_{2i}
+$$
+
+$$
+\beta_{3i}=\gamma_{30}+\tau_{3i}
+$$
+
+And $[\rho_{01}, \rho_{02}, \rho_{03}, \rho_{12}, \rho_{13}, \rho_{23}]$ are the correlation coefficients between random effects.
+
+## Identity Responses
+
+Responses for identity questions will be modeled with a mixed effects binomial model with the probit link function. The probability of participant $i$ to answer "*Different*" in each trial is:
+
+$$
+P(response=Different)=\phi(\theta_i-\mu_i)
+$$
+
+$\phi$ is the standard normal CDF.
+
+Where:
+
+Level 1:
+
+$\theta_i$ is the criterion (general tendency to answer "Different") of participant $i$.
+
+$$
+\theta_i=\gamma_{00}+\tau_{0i}
+$$
+
+$$
+\mu_i=\beta_{1i} \cdot identityDifferent+\beta_{2i} \cdot socialstatusARAB+\beta_{3i} \cdot identityDifferent\cdot socialstatusARAB
+$$
+
+Level 2:
+
+$$
+  \begin{bmatrix}
+        \theta \cr
+        \beta_1 \cr
+        \beta_2 \cr
+        \beta_3
+  \end{bmatrix} \sim N(\begin{bmatrix}
+                        \gamma_{00} \cr
+                        \gamma_{10} \cr
+                        \gamma_{20} \cr
+                        \gamma_{30}
+                       \end{bmatrix},\begin{pmatrix}
+                                      \tau_0^2 & \tau_0\tau_1 \rho_{01} & \tau_0\tau_2 \rho_{02} & \tau_0\tau_3 \rho_{03} \cr
+                                      \tau_1\tau_0 \rho_{01} & \tau_1^2 & \tau_1\tau_2 \rho_{12} & \tau_1\tau_3 \rho_{13} \cr
+                                      \tau_2\tau_0 \rho_{02} & \tau_2\tau_1 \rho_{12} & \tau_2^2 & \tau_2\tau_3 \rho_{23} \cr
+                                      \tau_3\tau_0 \rho_{03} & \tau_3\tau_1 \rho_{13} & \tau_3\tau_2 \rho_{23} & \tau_3^2
+                                     \end{pmatrix})
+$$
+
+$$
+\beta_{1i}=\gamma_{10}+\tau_{1i}
+$$
+
+$$
+\beta_{2i}=\gamma_{20}+\tau_{2i}
+$$
+
+$$
+\beta_{3i}=\gamma_{30}+\tau_{3i}
+$$
+
+And $[\rho_{01}, \rho_{02}, \rho_{03}, \rho_{12}, \rho_{13}, \rho_{23}]$ are the correlation coefficients between the random effects.
+
+# Setup
+
+```{r}
+#| output: false
+library(tidyverse)
+library(patchwork)
+library(flextable)
+library(lmerTest)
+library(optimx)
+library(performance)
+library(parameters)
+library(bayestestR)
+library(emmeans)
+library(ggeffects)
+library(ggdist)
+library(merDeriv)
+library(statmod)
+library(ggplot2)
+
+```
+
+# Loading data
+
+```{r}
+
+setwd("C:/Users/97252/Documents/GitHub/face_cater/Study 1")
+data <- read_rds("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/preprocessed_data.rds")
+```
+
+#### Colors for plots
+
+```{r}
+color_vec <- c("#4b3d8f", "#37a987")
+```
+
+# Reaction time
+
+## Tidying
+
+```{r}
+
+
+data_clean <- data |>
+  mutate(Name = factor(Name),
+         Ethnicity = factor(Ethnicity, levels = c("JEWISH", "ARAB")),
+         identity = factor(Identity, levels = c("Same", "Diff")),
+         target_sex = factor(target_sex, levels = c("male", "female")),
+         id = factor(Participant_Private_ID)) |>  # Corrected this line
+  # mutate(Ethnicity_e = case_when(Ethnicity == "ARAB" ~ 1,
+  #                                Ethnicity == "JEWISH" ~ -1),  ## for factor effect coding
+  #        identity_e = case_when(identity == "Diff" ~ 1,
+  #                               identity == "Same" ~ -1),
+         # target_sex_e = case_when(target_sex == "male" ~ 1,
+         #                          target_sex == "female" ~ -1)) |>
+  group_by(id) |>
+  mutate(trial = row_number(id)) |>
+  ungroup() |>
+  filter(Correct_Identity == "yes")
+```
+
+```{r}
+#contrasts(data_clean$Ethnicity) = contr.treatment(2)
+
+contrasts(data_clean$Ethnicity) <- contr.sum(2)
+contrasts(data_clean$identity) <- contr.sum(2)
+
+contrasts(data_clean$Ethnicity)
+contrasts(data_clean$identity)
+
+
+```
+
+## Looking at the data
+
+```{r}
+#| code-fold: true
+#| code-summary: "ggplot code"
+rt_descriptives_plot <- ggplot(data_clean, aes(x = Reaction_time, y = Identity, fill = Ethnicity, color = Ethnicity)) +
+  stat_slab(alpha = 0.7) +
+  geom_point(alpha = 0.5, position = position_jitter(width = 0.7, height = 0), show.legend = F) +
+  theme_classic() +
+  labs(y = "Face repetition condition", x = "Reaction Time (ms)", fill = "Ethnicity") +
+  guides(color = "none") +
+  scale_x_continuous(breaks = seq(200, 900, 50), labels = seq(200, 900, 50)) +
+  scale_fill_manual(values = color_vec) +
+  scale_color_manual(values = scales::muted(color_vec)) +
+  labs(title = "Reaction times",
+       subtitle = "RT look smaller for 'Same' condition, not visible interaction with social status") +
+  theme(axis.title = element_text(size = 12, family = "serif"),
+        plot.title = element_text(size = 20, family = "serif", hjust = 0.5),
+        plot.subtitle = element_text(size = 13, family = "serif", hjust = 0.5))
+
+rt_descriptives_plot
+```
+
+```{r}
+#| echo: false
+#| eval: false
+ggsave(filename = "rt_descriptive_dist_plot.png", plot = rt_descriptives_plot, path = "../plots/", width = 2450, height = 2100, units = "px")
+```
+
+## Per-participant reaction time
+
+```{r}
+#| code-fold: true
+#| code-summary: "ggplot code"
+per_p_rt <- data_clean |>
+  group_by(id) |>
+  mutate(pm_rt = mean(Reaction_time, na.rm = T)) |>
+  ungroup() |>
+  ggplot(aes(x = Participant_Private_ID, y = pm_rt)) +
+  geom_point(aes(x = Participant_Private_ID, y = Reaction_time)) +
+  geom_point(color = "red", size = 2.5)
+
+per_p_rt
+```
+
+## Conditional means
+
+```{r}
+cond_means <- data_clean |>
+  group_by(Ethnicity, identity) |>
+  reframe(mean = mean(Reaction_time),
+          sd = sd(Reaction_time))
+
+flextable(cond_means)
+```
+
+## Model choice
+
+Checking three possible models and figuring which will be better: 1. Inverse Gaussian with the identity link function 2. Gaussian with the log link function 3. Gaussian with the identity link function ("regular" OLS linear regression)
+
+### Gaussian
+
+```{r}
+
+library(Matrix) 
+library(lme4)
+
+
+model0_rt_gaussian <- lmer(Reaction_time ~ 1 + (1 | id),
+                           data = data_clean)
+
+model_parameters(model0_rt_gaussian)
+
+icc(model0_rt_gaussian)
+```
+
+```{r}
+
+plot(posterior_predictive_check(model0_rt_gaussian))
+```
+
+```{r}
+model1_rt_gaussian <- lmer(Reaction_time ~ Ethnicity + identity + (1 | id),
+                           data = data_clean)
+
+model_parameters(model1_rt_gaussian)
+```
+
+```{r}
+
+
+
+
+model1_rt_gaussian <- lmer(Reaction_time ~ Ethnicity + identity + (1 | id),
+                           data = data_clean)
+
+model_parameters(model1_rt_gaussian)
+```
+
+```{r}
+plot(posterior_predictive_check(model1_rt_gaussian))
+```
+
+```{r}
+model2_rt_gaussian <- lmer(Reaction_time ~ Ethnicity * identity + (1 | id),
+                           data = data_clean)
+
+model_parameters(model2_rt_gaussian)
+```
+
+```{r}
+plot(posterior_predictive_check(model2_rt_gaussian))
+```
+
+```{r}
+anova(model0_rt_gaussian, model1_rt_gaussian)
+```
+
+```{r}
+anova(model1_rt_gaussian, model2_rt_gaussian)
+```
+
+### Log-Gaussian
+
+```{r}
+library(merDeriv)
+library(parameters)
+library(irr)
+library(psych)
+library(lme4)
+library(performance)
+
+model0_rt_log <- lmer(log(Reaction_time) ~ 1 + (1 | id),
+                      data = data_clean)
+
+model_parameters(model0_rt_log, exponentiate = T)
+
+icc(model0_rt_log)
+```
+
+```{r}
+plot(posterior_predictive_check(model0_rt_log))
+```
+
+Regression coefficients should be interpreted as ratios - e.g. if $\beta_{identity}=1.2$ mean RT in "different" conditions is 1.2 **times** greater then mean RT in "same" condition.
+
+```{r}
+model1_rt_log <- lmer(log(Reaction_time) ~ Ethnicity + identity + (1 | id),
+                      data = data_clean)
+
+model_parameters(model1_rt_log, exponentiate = T)
+```
+
+```{r}
+plot(posterior_predictive_check(model1_rt_log))
+```
+
+```{r}
+model2_rt_log <- lmer(log(Reaction_time) ~ Ethnicity * identity + (1 | id),
+                      data = data_clean)
+
+model_parameters(model2_rt_log, exponentiate = T)
+```
+
+```{r}
+plot(posterior_predictive_check(model2_rt_log))
+```
+
+```{r}
+anova(model0_rt_log, model1_rt_log)
+```
+
+```{r}
+anova(model1_rt_log, model2_rt_log)
+```
+
+### Inverse Gaussian
+
+```{r}
+model0_rt_invGauss <- glmer(Reaction_time ~ 1 + (1 | id),
+                            data = data_clean,
+                            family = inverse.gaussian(link = "identity"))
+
+model_parameters(model0_rt_invGauss)
+
+icc(model0_rt_invGauss)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+
+
+
+saveRDS(model0_rt_invGauss, file = "../models/model0_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model0_rt_invGauss <- readRDS("../models/model0_rt_invGauss.rds")
+```
+
+```{r}
+plot(posterior_predictive_check(model0_rt_invGauss))
+```
+
+\*\* Model with just identity
+
+```{r}
+model0.5_rt_invGauss <- glmer(Reaction_time ~ identity + (1 | id),
+                            data = data_clean,
+                            family = inverse.gaussian(link = "identity"))
+
+model_parameters(model0.5_rt_invGauss)
+
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model0.5_rt_invGauss, file = "../models/model0.5_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model0.5_rt_invGauss <- readRDS("../models/model0.5_rt_invGauss.rds")
+```
+
+```{r}
+plot(posterior_predictive_check(model0.5_rt_invGauss))
+```
+
+```{r}
+model1_rt_invGauss <- glmer(Reaction_time ~ Ethnicity + identity + (1 | id),
+                            data = data_clean,
+                            family = inverse.gaussian(link = "identity"))
+
+model_parameters(model1_rt_invGauss)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model1_rt_invGauss, file = "../models/model1_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model1_rt_invGauss <- readRDS("../models/model1_rt_invGauss.rds")
+```
+
+```{r}
+plot(posterior_predictive_check(model1_rt_invGauss))
+```
+
+```{r}
+#| eval: false
+
+model2_rt_invGauss <- glmer(Reaction_time ~ Ethnicity * identity + (1 | id),
+                            data = data_clean,
+                            family = inverse.gaussian(link = "identity"),
+                            control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+
+model_parameters(model2_rt_invGauss)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model2_rt_invGauss, file = "../models/model2_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model2_rt_invGauss <- readRDS("../models/model2_rt_invGauss.rds")
+```
+
+```{r}
+plot(posterior_predictive_check(model2_rt_invGauss))
+```
+
+#### Model comparison - fixed effects
+
+```{r}
+anova(model0_rt_invGauss, model0.5_rt_invGauss)
+
+```
+
+```{r}
+anova(model0_rt_invGauss, model1_rt_invGauss)
+```
+
+```{r}
+anova(model1_rt_invGauss, model2_rt_invGauss)
+```
+
+```{r}
+model_parameters(model2_rt_invGauss) |> insight::print_html()
+```
+
+Model without interaction is better.
+
+##### Adding random effects
+
+```{r}
+#| eval: false
+model1.1_rt <- glmer(Reaction_time ~ Ethnicity + identity + (1 + identity | id),
+                     data = data_clean,
+                     family = inverse.gaussian(link = "identity"))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model1.1_rt, file = "../models/model1.1_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model1.1_rt <- readRDS("../models/model1.1_rt_invGauss.rds")
+```
+
+```{r}
+model_parameters(model1.1_rt)
+```
+
+```{r}
+anova(model1_rt_invGauss, model1.1_rt)
+```
+
+```{r}
+#| eval: false
+model1.2_rt <- glmer(Reaction_time ~ Ethnicity + identity + (1 + Ethnicity + identity | id),
+                     data = data_clean,
+                     family = inverse.gaussian(link = "identity"),
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model1.2_rt, file = "../models/model1.2_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model1.2_rt <- readRDS("../models/model1.2_rt_invGauss.rds")
+```
+
+```{r}
+model_parameters(model1.2_rt)
+```
+
+```{r}
+anova(model1.1_rt, model1.2_rt)
+```
+
+Model with random intercepts + random slopes for IDENTITY only is best.
+
+#### Starting with maximal model
+
+This model did not converge with, or without correlations between random effects. It has also did not converge when random slopes for `Ethnicity`, `identity` and their interaction were removed.
+
+intercept (names for Arab) + slope for identity (just for arab names) + intercept (names for Jewish) + slope for identity (just for jweish names)
+
+2\|\|- without correlation for intercept\* slope
+
+*NOTE* i cant execute this model because of insufficient number of observations
+
+```{r}
+#| eval: false
+model_maximal_rt <- glmer(Reaction_time ~ Ethnicity * identity + (1 + Ethnicity * identity | id) + (0 + dummy(Ethnicity, "ARAB") + dummy(Ethnicity, "ARAB"):identity || Name) + (0 + dummy(Ethnicity, "JEWISH") + dummy(Ethnicity, "JEWISH"):identity || Name),
+                          data = data_clean,
+                          family = inverse.gaussian(link = "identity"),
+                          control = glmerControl(optimizer = "Nelder_Mead", optCtrl = list(maxfun = 2e9)))
+```
+
+Therefore, proceeding without them:
+
+```{r}
+#| eval: false
+model_maximal_rt <- glmer(Reaction_time ~ Ethnicity * identity + (1 + Ethnicity * identity | id),
+                          data = data_clean,
+                          family = inverse.gaussian(link = "identity"),
+                          control = glmerControl(optimizer = "Nelder_Mead", optCtrl = list(maxfun = 2e9)))
+```
+
+This model too failed to converge.
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model_maximal_rt, file = "../models/model_maximal_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model_maximal_rt <- readRDS("../models/model_maximal_rt_invGauss.rds")
+```
+
+No random slope for Ethnicity.
+
+```{r}
+#| eval: false
+model3_rt <- glmer(Reaction_time ~ Ethnicity * identity + (1 + identity + Ethnicity:identity | id),
+                   data = data_clean,
+                   family = inverse.gaussian(link = "identity"),
+                   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e9)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model3_rt, file = "../models/model3_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model3_rt <- readRDS("../models/model3_rt_invGauss.rds")
+```
+
+```{r}
+model_parameters(model3_rt)
+```
+
+#### Gradual addition of random effects
+
+##### Empty model
+
+```{r}
+#| eval: false
+model2_rt <- glmer(Reaction_time ~ Ethnicity * identity + (1 | id),
+                   data = data_clean,
+                   family = inverse.gaussian(link = "identity"),
+                   control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e9)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model2_rt, file = "../models/model2_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model2_rt <- readRDS("../models/model2_rt_invGauss.rds")
+```
+
+```{r}
+model_parameters(model2_rt)
+```
+
+##### random slope for identity
+
+```{r}
+#| eval: false
+model2.1_rt <- glmer(Reaction_time ~ Ethnicity * identity + (1 + identity | id),
+                     data = data_clean,
+                     family = inverse.gaussian(link = "identity"),
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e9)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model2.1_rt, file = "../models/model2.1_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model2.1_rt <- readRDS("../models/model2.1_rt_invGauss.rds")
+```
+
+```{r}
+model_parameters(model2.1_rt)
+```
+
+##### random slopes for identity and Ethnicity
+
+```{r}
+#| eval: false
+model2.2_rt <- glmer(Reaction_time ~ Ethnicity * identity + (1 + Ethnicity + identity | id),
+                     data = data_clean,
+                     family = inverse.gaussian(link = "identity"),
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e9)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model2.2_rt, file = "../models/model2.2_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model2.2_rt <- readRDS("../models/model2.2_rt_invGauss.rds")
+```
+
+```{r}
+model_parameters(model2.2_rt)
+```
+
+```{r}
+sjPlot::tab_model(model2.2_rt, show.icc = F, show.r2 = F)
+
+lme4::ranef(model2.2_rt)
+```
+
+#### Model comparison
+
+```{r}
+anova(model3_rt, model2_rt)
+```
+
+```{r}
+anova(model3_rt, model2.1_rt)
+```
+
+```{r}
+anova(model3_rt, model2.2_rt)
+```
+
+## Maximal model - log-normal
+
+```{r}
+#| eval: false
+model_maximal_rt_log <- lmer(log(Reaction_time) ~ Ethnicity * identity + (1 + Ethnicity * identity | id),
+                              data = data_clean,
+                              control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model_maximal_rt_log, file = "../models/model_maximal_log_rt_invGauss.rds")
+```
+
+```{r}
+#| echo: false
+model_maximal_rt_log <- readRDS("../models/model_maximal_log_rt_invGauss.rds")
+```
+
+```{r}
+model_parameters(model_maximal_rt_log, exponentiate = T)
+```
+
+## Inspecting the interaction
+
+```{r}
+
+library(ggeffects)
+library(emmeans)
+library(lme4)
+(ems <- emmeans(model2.2_rt, ~ Ethnicity * identity))
+
+ems <- emmeans(model2.2_rt, ~ Ethnicity * identity)
+
+
+(ems <- emmeans(model_maximal_rt, ~ Ethnicity * identity, type = "response"))
+
+# Assuming ggeffects is installed and loaded
+# Predict interaction effects
+predicted_interaction_effects <- ggpredict(model_maximal_rt, terms = c("Ethnicity * identity"))
+
+# View the results
+print(predicted_interaction_effects)
+
+# Plot the results
+plot(predicted_interaction_effects)
+
+```
+
+```{r}
+contrast(ems, method = "revpairwise", by = "identity_e")
+```
+
+```{r}
+contrast(ems, list(repetition = c(0.5,0.5,-0.5,-0.5),
+                   Ethnicity = c(-0.5,0.5,-0.5,0.5)))
+```
+
+Contrast in DIFF (identity_e = 1) is not significant (and not in the right direction).
+
+## Visualizations
+
+## displaying the variance
+
+```{r}
+#| code-fold: true
+#| code-summary: "ggplot code"
+
+library(dplyr)
+plot1_rt <- data_clean |>
+  mutate(Identity = factor(Identity, levels = c("Same", "Diff"))) |>
+  ggplot(aes(x = Identity, y = Reaction_time, color = Ethnicity, group = Ethnicity)) +
+  geom_smooth(aes(x = Identity, y = Reaction_time, group = Participant_Private_ID), color = "grey84", method = "lm", se = F, inherit.aes = F) +
+  geom_smooth(method = "lm", se = F) +
+  scale_x_discrete(labels = c("Same", "Different")) +
+  facet_wrap(~ Ethnicity, scales = "free") +
+  scale_y_continuous(limits = c(180, 900), labels = seq(200, 900, 100), breaks = seq(200, 900, 100)) +
+  scale_color_manual(values = c("#4b3d8f", "#4b3d8f")) +
+  guides(color = "none") +
+  labs(y = "Reaction time (ms)", x = "Face repetition condition", title = "Mean RT in each face repetition and social status condition") +
+  theme_bw() +
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.title = element_text(family = "serif", size = 12),
+        plot.title = element_text(family = "serif", size = 14, hjust = 0.5))
+
+plot1_rt
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Assuming data_clean is your dataset
+plot_violin_rt <- data_clean %>%
+  mutate(Identity = factor(Identity, levels = c("Same", "Diff"))) %>%
+  ggplot(aes(x = Identity, y = Reaction_time, fill = Identity)) +  # Change fill to be based on Identity
+  geom_violin(trim = FALSE) +  # Draw violin plots
+  geom_boxplot(width = 0.1, fill = "white", outlier.shape = NA, alpha = 0.5) + # Optional: add a narrow boxplot inside each violin
+  scale_fill_manual(values = c("Same" = "#4b3d8f", "Diff" = "#f2a541")) +  # Specify colors for "Same" and "Diff"
+  facet_wrap(~ Ethnicity, scales = "free") +  # Faceting by Ethnicity
+  scale_y_continuous(limits = c(180, 900), labels = seq(200, 900, 100), breaks = seq(200, 900, 100)) +  # Y-axis scale
+  labs(y = "Reaction time (ms)", x = "Face repetition condition", title = "Distribution of RT by face repetition and ethnicity") +  # Labels and title
+  theme_bw() +  # Theme
+  theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.title = element_text(family = "serif", size = 12),
+        plot.title = element_text(family = "serif", size = 14, hjust = 0.5),
+        legend.title = element_text(family = "serif", size = 12))
+
+plot_violin_rt
+
+```
+
+
+```{r}
+
+## Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(tidybayes)
+
+# Assuming data_clean is your data frame
+# The columns should be Ethnicity, Participant_Private_ID, Reaction_time, and Identity
+
+# Calculate the effect size for each individual within each identity condition
+data_effect_size <- data_clean %>%
+  group_by(Ethnicity, Participant_Private_ID) %>%
+  summarise(
+    Mean_Same = mean(Reaction_time[Identity == "Same"], na.rm = TRUE),
+    Mean_Diff = mean(Reaction_time[Identity == "Diff"], na.rm = TRUE),
+    Effect_Size_Same = mean(Reaction_time[Identity == "Same"], na.rm = TRUE),
+    Effect_Size_Diff = mean(Reaction_time[Identity == "Diff"], na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# Prepare the data for plotting
+plot_data <- data_effect_size %>%
+  select(Ethnicity, Participant_Private_ID, Effect_Size_Same, Effect_Size_Diff) %>%
+  pivot_longer(cols = c(Effect_Size_Same, Effect_Size_Diff), 
+               names_to = "Condition", 
+               values_to = "Effect_Size") %>%
+  mutate(Condition = factor(Condition, levels = c("Effect_Size_Same", "Effect_Size_Diff"), 
+                            labels = c("Same", "Diff")))
+
+# Create the plot
+plot_diff <- ggplot(plot_data, aes(x = Condition, y = Effect_Size, fill = Condition)) +
+  stat_halfeye(aes(alpha = 1), position = position_dodge(0.2), slab_color = "gray49") +
+  facet_wrap(~ Ethnicity, scales = "free") +
+  scale_fill_manual(values = c("Same" = "#4b3d8f", "Diff" = "#f2a541")) +
+  labs(y = "Effect Size (ms)", x = "Condition", title = "Distribution of Effect Sizes by Condition and Ethnicity") +
+  theme_classic() +
+  guides(alpha = "none", color = "none") +
+  theme(
+    plot.title = element_text(size = 20, family = "serif", hjust = 0.5),
+    axis.title = element_text(size = 13, family = "serif"),
+    legend.title = element_text(size = 13, family = "serif", hjust = 0.5)
+  )
+
+# Display the plot
+print(plot_diff)
+
+
+combined_plot <- plot_violin_rt / plot_diff
+
+# Display the combined plot
+print(combined_plot)
+
+
+
+
+```
+
+
+
+```{r}
+ggsave("../plots/glmer_plot_rt.png", plot = plot1_rt, width = 2450, height = 2100, units = "px")
+```
+
+Since I didn't model the shape parameter ($\lambda$), it is kept constant.
+
+```{r}
+#| code-fold: true
+#| code-summary: "ggplot code"
+library(distributional)
+library(actuar)
+library(patchwork)
+library(ggdist)
+
+coefficients <- model_parameters(model_maximal_rt) |> data.frame()
+
+b_intercept <- coefficients$Coefficient[1]
+b_EthnicityARAB <- coefficients$Coefficient[2]
+b_identityDiff <- coefficients$Coefficient[3]
+b_EthnicityARABxidentityDiff <- coefficients$Coefficient[4]
+
+plot_ARAB_status <- ggplot(data = data.frame("dummy" = seq(1:10)), aes(xdist = distributional::dist_inverse_gaussian(mean = b_intercept + b_EthnicityARAB, shape = 34657.7), color = "Same")) +
+  stat_slab(fill = NA) +
+  stat_slab(aes(xdist = distributional::dist_inverse_gaussian(mean = b_intercept + b_EthnicityARAB + b_identityDiff + b_EthnicityARABxidentityDiff, shape = 34657.7), color = "Different"), fill = NA) + 
+  scale_x_continuous(limits = c(300, 900), breaks = seq(0, 900, 100), labels = seq(0, 900, 100)) +
+  scale_colour_manual(values = c("#4b3d8f", "#37a987")) + 
+  theme_classic() +
+  labs(x = "Reaction Time (ms)", title = "ARAB Status", colour = "Face repetition condition") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(family = "serif", size = 15, hjust = 0.5))
+
+plot_JEWISH_status <- ggplot(data = data.frame("dummy" = seq(1:10)), aes(xdist = distributional::dist_inverse_gaussian(mean = b_intercept, shape = 34657.7), color = "Same")) +
+  stat_slab(fill = NA) +
+  stat_slab(aes(xdist = distributional::dist_inverse_gaussian(mean = b_intercept + b_identityDiff, shape = 34657.7), color = "Different"), fill = NA) + 
+  scale_x_continuous(limits = c(300, 900), breaks = seq(0, 900, 100), labels = seq(0, 900, 100)) +
+  scale_colour_manual(values = c("#4b3d8f", "#37a987")) + 
+  theme_classic() +
+  labs(x = "Reaction Time (ms)", title = "JEWISH Status", colour = "Face repetition condition") +
+  theme(axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(family = "serif", size = 15, hjust = 0.5))
+
+dist_plot <- (plot_ARAB_status + plot_JEWISH_status) +
+  plot_layout(guides = "collect") +
+  plot_annotation(title = "Predicted distribution of RT",
+                  subtitle = "RT for Different faces is consistently larger",
+                  theme = theme(plot.title = element_text(size = 20, family = "serif", hjust = 0.5),
+                                plot.subtitle = element_text(size = 12, family = "serif", hjust = 0.5)))
+
+dist_plot
+```
+
+```{r}
+#| eval: false
+#| echo: false
+ggsave("../plots/dist_plot_rt.png", plot = dist_plot, width = 2450, height = 2100, units = "px")
+```
+
+# Correct answers
+
+I deviate from the pre-registration again here, and fit the binomial models with the *probit*, instead of *logit* link function. This has little to no influence on model estimation or fit, only makes it easier for me to interpret.
+
+## Tidying
+
+```{r}
+data_clean_ca <- data |>
+  mutate(Name = factor(Name),
+         Ethnicity = factor(Ethnicity, levels = c("JEWISH", "ARAB")),
+         identity = factor(Identity, levels = c("Same", "Diff")),
+         identity_response = factor(Identity_answer, levels = c("Same", "Diff")),
+         target_sex = factor(target_sex, levels = c("male", "female")),
+         id = factor(Participant_Private_ID)) |>
+  group_by(id) |>
+  mutate(trial = row_number(id)) |>
+  ungroup() |>
+  select(id, trial, target_sex, , Ethnicity, , Name, identity, , identity_response, Reaction_time)
+
+contrasts(data_clean_ca$Ethnicity) <- contr.sum(2)
+contrasts(data_clean_ca$identity) <- contr.sum(2)
+
+contrasts(data_clean_ca$Ethnicity)
+contrasts(data_clean_ca$identity)
+
+```
+
+## Descriptives
+
+```{r}
+#| code-fold: true
+#| code-summary: "ggplot code"
+plot_responses <- data_clean_ca |>
+  ggplot(aes(x = identity, fill = identity_response)) +
+  geom_bar(position = "dodge", stat = "count") +
+  facet_wrap(~Ethnicity) +
+  scale_fill_manual(values = color_vec) +
+  labs(x = "Second Face", fill = "Second Face Response") +
+  scale_y_continuous(breaks = seq(0, 2500, 200), labels = seq(0, 2500, 200)) +
+  theme_classic()
+
+plot_responses
+```
+
+## Model 0
+
+*Note*- The ordinal function will be used just for making the SDT visualization at the end. It won't work now because we do not have sufficient amount of participants.
+
+```{r}
+#| eval: false
+#| echo: false
+ordinal_model0_ca <- ordinal::clmm(identity_response ~ 1 + (1 | id),
+                                   data = data_clean_ca,
+                                   link = "probit",
+                                   threshold = "flexible",
+                                   Hess = TRUE)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+write_rds(ordinal_model0_ca, file = "../models/ordinal_model0_ca.rds")
+```
+
+```{r}
+#| echo: false
+ordinal_model0_ca <- read_rds("../models/ordinal_model0_ca.rds")
+```
+
+```{r}
+#| eval: false
+#| echo: false
+model_parameters(ordinal_model0_ca)
+```
+
+```{r}
+#| eval: false
+model0_ca <- glmer(identity_response ~ 1 + (1 | id),
+                   data = data_clean_ca,
+                   family = binomial(link = "logit"))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model0_ca, file = "../models/model0_ca.rds")
+```
+
+```{r}
+#| echo: false
+model0_ca <- readRDS("../models/model0_ca.rds")
+```
+
+```{r}
+model_parameters(model0_ca, exponentiate = T)
+```
+
+## Model 0.5
+
+```{r}
+#| eval: false
+#| echo: false
+ordinal_model0.5_ca <- ordinal::clmm(identity_response ~ identity + (1 | id),
+                                   data = data_clean_ca,
+                                   link = "probit",
+                                   threshold = "flexible",
+                                   Hess = TRUE)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+write_rds(ordinal_model0.5_ca, file = "../models/ordinal_model0.5_ca.rds")
+```
+
+```{r}
+#| echo: false
+ordinal_model0.5_ca <- read_rds("../models/ordinal_model0.5_ca.rds")
+```
+
+```{r}
+#| eval: false
+#| echo: false
+model_parameters(ordinal_model0.5_ca)
+```
+
+```{r}
+#| eval: false
+model0.5_ca <- glmer(identity_response ~ identity + (1 | id),
+                     data = data_clean_ca,
+                     family = binomial(link = "logit"))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model0.5_ca, file = "../models/model0.5_ca.rds")
+```
+
+```{r}
+#| echo: false
+model0.5_ca <- readRDS("../models/model0.5_ca.rds")
+```
+
+```{r}
+model_parameters(model0.5_ca, exponentiate = T)
+
+contrasts(data_clean_ca$identity)
+levels(data_clean_ca$identity_response)
+contrasts(data_clean_ca$identity_response)
+
+
+ems <- emmeans(model0.5_ca, ~  identity, type = "response")
+pairs(ems)
+ems
+```
+
+## Model 1
+
+```{r}
+#| eval: false
+#| echo: false
+ordinal_model1_ca <- ordinal::clmm(identity_response ~ identity + Ethnicity + (1 | id),
+                                   data = data_clean_ca,
+                                   link = "probit",
+                                   threshold = "flexible",
+                                   Hess = TRUE)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+write_rds(ordinal_model1_ca, file = "../models/ordinal_model1_ca.rds")
+```
+
+```{r}
+#| echo: false
+ordinal_model1_ca <- read_rds("../models/ordinal_model1_ca.rds")
+```
+
+```{r}
+#| eval: false
+#| echo: false
+model_parameters(ordinal_model1_ca)
+```
+
+```{r}
+#| eval: false
+model1_ca <- glmer(identity_response ~ identity + Ethnicity + (1 | id),
+                     data = data_clean_ca,
+                     family = binomial(link = "logit"))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model1_ca, file = "../models/model1_ca.rds")
+```
+
+```{r}
+#| echo: false
+model1_ca <- readRDS("../models/model1_ca.rds")
+```
+
+```{r}
+model_parameters(model1_ca, exponentiate = T)
+```
+
+## Model 2
+
+```{r}
+#| eval: false
+#| echo: false
+ordinal_model2_ca <- ordinal::clmm(identity_response ~ identity * Ethnicity + (1 | id),
+                                   data = data_clean_ca,
+                                   link = "probit",
+                                   threshold = "flexible",
+                                   Hess = TRUE)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+write_rds(ordinal_model2_ca, file = "../models/ordinal_model2_ca.rds")
+```
+
+```{r}
+#| echo: false
+ordinal_model2_ca <- read_rds("../models/ordinal_model2_ca.rds")
+```
+
+```{r}
+#| eval: false
+#| echo: false
+model_parameters(ordinal_model2_ca)
+```
+
+```{r}
+#| eval: false
+model2_ca <- glmer(identity_response ~ identity * Ethnicity + (1 | id),
+                     data = data_clean_ca,
+                     family = binomial(link = "logit"))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model2_ca, file = "../models/model2_ca.rds")
+```
+
+```{r}
+#| echo: false
+model2_ca <- read_rds("../models/model2_ca.rds")
+
+```
+
+```{r}
+model_parameters(model2_ca, exponentiate = T)
+
+```
+
+### Model comparison - fixed effects
+
+```{r}
+anova(model0_ca, model1_ca)
+```
+
+```{r}
+anova(model1_ca, model2_ca)
+```
+
+## Random effects
+
+### Model 2.1
+
+*Note*- ordinal models are only for the SDT visualization distribution. they will not work until we will have sufficient subjects.
+
+```{r}
+#| eval: false
+#| echo: false
+ordinal_model2.1_ca <- ordinal::clmm(identity_response ~ identity * Ethnicity + (1 + identity | id),
+                                   data = data_clean_ca,
+                                   link = "probit",
+                                   threshold = "flexible",
+                                   Hess = TRUE)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+write_rds(ordinal_model2.1_ca, file = "../models/ordinal_model2.1_ca.rds")
+
+```
+
+```{r}
+#| echo: false
+ordinal_model2.1_ca <- read_rds("../models/ordinal_model2.1_ca.rds")
+```
+
+```{r}
+#| eval: false
+#| echo: false
+model_parameters(ordinal_model2.1_ca)
+```
+
+```{r}
+#| eval: false
+model2.1_ca <- glmer(identity_response ~ Ethnicity * identity + (1 + identity | id),
+                     data = data_clean_ca,
+                     family = binomial(link = "logit"),
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model2.1_ca, file = "../models/model2.1_ca.rds")
+```
+
+```{r}
+#| echo: false
+model2.1_ca <- readRDS("../models/model2.1_ca.rds")
+```
+
+```{r}
+model_parameters(model2.1_ca, exponentiate = T)
+```
+
+```{r}
+ems <- emmeans(model2.1_ca, ~ Ethnicity * identity, type = "response")
+
+contrast(ems, method = list(repetition = c(0.5,0.5,-0.5,-0.5),
+                            Ethnicity = c(-0.5,0.5,-0.5,0.5)))
+```
+
+```{r}
+contrast(ems, method = "revpairwise", by = "identity")
+```
+
+```{r}
+sjPlot::tab_model(model2.1_ca, transform = "exp")
+```
+
+### Model 2.2
+
+```{r}
+#| eval: false
+#| echo: false
+ordinal_model2.2_ca <- ordinal::clmm(identity_response ~ identity * Ethnicity + (1 + identity + Ethnicity | id),
+                                   data = data_clean_ca,
+                                   link = "probit",
+                                   threshold = "flexible",
+                                   Hess = TRUE)
+```
+
+```{r}
+#| echo: false
+#| eval: false
+write_rds(ordinal_model2.2_ca, file = "../models/ordinal_model2.2_ca.rds")
+```
+
+```{r}
+#| echo: false
+ordinal_model2.2_ca <- read_rds("../models/ordinal_model2.2_ca.rds")
+```
+
+```{r}
+#| eval: false
+#| echo: false
+model_parameters(ordinal_model2.1_ca)
+```
+
+```{r}
+#| eval: false
+model2.2_ca <- glmer(identity_response ~ identity * Ethnicity + (1 + identity + Ethnicity | id),
+                     data = data_clean_ca,
+                     family = binomial(link = "logit"),
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model2.2_ca, file = "../models/model2.2_ca.rds")
+```
+
+```{r}
+#| echo: false
+model2.2_ca <- readRDS("../models/model2.2_ca.rds")
+```
+
+```{r}
+model_parameters(model2.2_ca, exponentiate = T)
+```
+
+### Maximal model
+
+```{r}
+#| eval: false
+model_maximal_ca <- glmer(identity_response ~ identity * Ethnicity + (1 + identity * Ethnicity | id),
+                     data = data_clean_ca,
+                     family = binomial(link = "logit"),
+                     control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+saveRDS(model_maximal_ca, file = "../models/model_maximal_ca.rds")
+```
+
+```{r}
+#| echo: false
+model_maximal_ca <- readRDS("../models/model_maximal_ca.rds")
+```
+
+```{r}
+model_parameters(model_maximal_ca, exponentiate = T)
+```
+
+## Model comparison - random effects
+
+```{r}
+anova(model2_ca, model2.1_ca)
+```
+
+```{r}
+anova(model2.1_ca, model2.2_ca)
+```
+
+```{r}
+anova(model2.1_ca, model_maximal_ca)
+```
+
+## Visualizations
+
+*NOTE*- i can only show this distribution when i will have sufficient amount of data to clculate the ordinal model.
+
+```{r}
+#| code-fold: true
+#| code-summary: "ggplot helper function"
+distributions_plot_2_vars <- function(model, pallete = 9, ttl = "") {
+  
+  library(ggplot2)
+  library(patchwork)
+  Threshold <- coef(model)[1]
+  b_identityDiff <- coef(model)["identity1"]
+  b_EthnicityARAB <- coef(model)["Ethnicity1"]
+  b_interaction <- coef(model)["Ethnicity1 : identity1"]
+  
+  dist_plot_pre <- ggplot() +
+    
+    # JEWISH + Same
+    stat_function(aes(linetype = "Same"), fun = dnorm,
+                  args = list(mean = 0, sd = 1),
+                  linewidth = 1) + 
+    # JEWISH + Different
+    stat_function(aes(linetype = "Different"), fun = dnorm, 
+                  args = list(mean = b_identityDiff, sd = 1),
+                  linewidth = 1) + 
+    # Thresholds
+    geom_vline(aes(xintercept = Threshold, color = ""),
+               linewidth = 1.5) + 
+    scale_color_manual(values = color_vec[1], labels = "Criterion") + 
+    labs(y = NULL, linetype = "Second Face", x = "SD", title = "JEWISH Social Status", color = NULL) + 
+    expand_limits(x = c(-3, 6), y = 0.45) +
+    scale_x_continuous(breaks = seq(-3, 6, 1), labels = seq(-3, 6, 1)) +
+    theme_classic() +
+    theme(plot.title = element_text(size = 15, family = "serif", hjust = 0.5),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank())
+  
+  dist_plot_post <- ggplot() +
+    
+    # ARAB + Same
+    stat_function(aes(linetype = "Same"), fun = dnorm,
+                  args = list(mean = 0, sd = 1),
+                  linewidth = 1) + 
+    # ARAB + Different
+    stat_function(aes(linetype = "Different"), fun = dnorm, 
+                  args = list(mean = b_identityDiff + b_interaction, sd = 1),
+                  linewidth = 1) + 
+    # Thresholds
+    geom_vline(aes(xintercept = Threshold - b_EthnicityARAB, color = ""),
+               linewidth = 1.5) + 
+    scale_color_manual(values = color_vec[1], labels = "Criterion") + 
+    labs(y = NULL, linetype = "Second Face", x = "SD", title = "ARAB Social Status", color = NULL) + 
+    expand_limits(x = c(-3, 6), y = 0.45) + 
+    scale_x_continuous(breaks = seq(-3, 6, 1), labels = seq(-3, 6, 1)) +
+    theme_classic() +
+    theme(plot.title = element_text(size = 15, family = "serif", hjust = 0.5),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank())
+  
+  dist_plot <- (dist_plot_pre / dist_plot_post) +
+    plot_layout(guides = "collect") +
+    plot_annotation(title = ttl,
+                    subtitle = "Different faces are recognized better then identical faces, with no significant interaction with social status",
+                    theme = theme(plot.title = element_text(family = "serif", size = 20, hjust = .5),
+                                  plot.subtitle = element_text(family = "serif", size = 12, hjust = .5)))
+  
+  return(dist_plot)
+}
+```
+
+```{r}
+(dist_plot_answers <- distributions_plot_2_vars(model2.1_ca, ttl = "Signal Detection Perspective"))
+```
+
+```{r}
+summary(model2.1_ca)
+
+
+
+distributions_plot_2_vars1 <- function(model, palette = 9, ttl = "") {
+  library(ggplot2)
+  library(patchwork)
+
+  # Extract coefficients
+  coef_data <- coef(summary(model))
+  
+  intercept <- coef_data["(Intercept)", "Estimate"]
+  b_Ethnicity <- coef_data["Ethnicity1", "Estimate"]
+  b_Identity <- coef_data["identity1", "Estimate"]
+  b_Interaction <- coef_data["Ethnicity1:identity1", "Estimate"]
+  
+  # Define Threshold
+  Threshold <- -intercept  # Reflecting zero net input
+  
+  # Define color vector
+  color_vec <- c("#4b3d8f", "#f2a541")  # Adjust colors as needed
+  
+  # Extended range for X axis to fully display the curves
+  x_range <- seq(-3, 3, length.out = 300)
+  
+  # Plotting distributions for JEWISH status
+  dist_plot_pre <- ggplot(data = data.frame(x = x_range), aes(x = x)) +
+    stat_function(aes(linetype = "Same"), fun = dnorm, args = list(mean = 0, sd = 1), size = 1) + 
+    stat_function(aes(linetype = "Different"), fun = dnorm, args = list(mean = b_Identity, sd = 1), size = 1) + 
+    geom_vline(xintercept = Threshold, color = "blue", size = 1.5) + 
+    labs(y = "Density", linetype = "Condition", x = "Z-scores", title = "JEWISH Social Status") +
+    xlim(-3, 3) + ylim(0, 0.5) +
+    theme_classic() +
+    theme(plot.title = element_text(size = 15, family = "serif", hjust = 0.5))
+
+  # Plotting distributions for ARAB status
+  dist_plot_post <- ggplot(data = data.frame(x = x_range), aes(x = x)) +
+    stat_function(aes(linetype = "Same"), fun = dnorm, args = list(mean = 0, sd = 1), size = 1) + 
+    stat_function(aes(linetype = "Different"), fun = dnorm, args = list(mean = b_Identity + b_Interaction, sd = 1), size = 1) + 
+    geom_vline(xintercept = Threshold - b_Ethnicity, color = "blue", size = 1.5) + 
+    labs(y = "Density", linetype = "Condition", x = "Z-scores", title = "ARAB Social Status") +
+    xlim(-3, 3) + ylim(0, 0.5) +
+    theme_classic() +
+    theme(plot.title = element_text(size = 15, family = "serif", hjust = 0.5))
+
+  # Combine plots with annotations
+  dist_plot <- (dist_plot_pre / dist_plot_post) +
+    plot_layout(guides = "collect") +
+    plot_annotation(title = ttl,
+                    subtitle = "Different faces are recognized better than identical faces, with no significant interaction with social status",
+                    theme = theme(plot.title = element_text(family = "serif", size = 20, hjust = .5),
+                                  plot.subtitle = element_text(family = "serif", size = 12, hjust = .5)))
+
+  return(dist_plot)
+}
+
+
+(dist_plot_answers <- distributions_plot_2_vars1(model2.1_ca, ttl = "Signal Detection Perspective"))
+
+
+```
+
+```{r}
+#| eval: false
+#| echo: false
+ggsave(filename = "../plots/SDT_plot_correct_identification.png", plot = dist_plot_answers, width = 2450, height = 1446, units = "px")
+```
+
+# Exploratory Analysis
+
+## Targets Threat- Exploratory
+
+Uploading-
+
+```{r}
+treat_data <- read.csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/sim_threat.csv") |>
+  select(Participant.Private.ID, Response.Type, Response, Display, Spreadsheet..image) |>
+  filter(Response.Type == "response", Display == "task") |>
+  select(-Response.Type, -Display) |>
+  mutate(Participant.Private.ID = as.character(Participant.Private.ID))
+
+data_clean_threat <- data_clean |>
+  left_join(treat_data, by = c("Participant_Private_ID" = "Participant.Private.ID", "First_Image" = "Spreadsheet..image")) %>%
+  rename(first_image_threat = Response) |>
+  left_join(treat_data, by = c("Participant_Private_ID" = "Participant.Private.ID", "Second_Image" = "Spreadsheet..image")) %>%
+  rename(second_image_threat = Response) |>
+  mutate(
+    first_image_threat = as.numeric(first_image_threat),
+    second_image_threat = as.numeric(second_image_threat)
+  ) |>
+  mutate(mean_threat = (first_image_threat + second_image_threat) / 2)|>
+  mutate(mean_threat_C = scale(mean_threat, center = TRUE, scale = FALSE)
+  )
+
+  
+```
+
+### Checking the influence of the precieved threat on both Dependent Varaiables,
+
+```{r}
+
+```
+
+## Precieved Anxiety- Exploratory
+
+```{r}
+
+
+
+
+Anxiety_data0 <- read.csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/Anxiety_stimu.csv")
+
+
+# Filter and select necessary data
+Anxiety_data <- Anxiety_data0 %>%
+  filter(Response.Type == "response", grepl("value", Key)) %>%
+  select(Participant.Private.ID, Task.Name, Question, Response, Page.Counter) %>%
+  rename(Participant_Private_ID = Participant.Private.ID) %>%
+  mutate(
+    Participant_Private_ID = as.character(Participant_Private_ID),
+    Response = as.character(Response),  # Keeping responses as character since they are 'yes' or 'no'
+    Page.Counter = as.integer(Page.Counter),
+    Question = str_remove_all(Question, "<.*?>")  # Remove HTML tags if any
+  )
+
+# Split the data based on the questionnaire pages
+Anxiety_responses <- Anxiety_data |>
+  mutate(Response = as.numeric(Response)) %>%  # Convert to numeric, NAs introduced if conversion fails
+  filter(Page.Counter == 2) |>
+  group_by(Participant_Private_ID) |>
+  summarise(Anxiety_Score = sum(Response, na.rm = TRUE), .groups = 'drop')
+
+war_exposure_responses <- Anxiety_data %>%
+  mutate(Response = as.numeric(Response)) %>%  # Convert to numeric, NAs introduced if conversion fails
+  filter(Page.Counter == 4) %>%
+  group_by(Participant_Private_ID) %>%
+  summarise(War_Exposure_Score = sum(Response, na.rm = TRUE), .groups = 'drop')
+
+# Merge the scores back into the main dataset
+data_clean <- data_clean %>%  # Assuming data_clean is already defined elsewhere in your script
+  left_join(Anxiety_responses, by = "Participant_Private_ID") %>%
+  left_join(war_exposure_responses, by = "Participant_Private_ID") %>%
+  mutate(
+    Anxiety_Score = ifelse(is.na(Anxiety_Score), 0, Anxiety_Score),
+    War_Exposure_Score = ifelse(is.na(War_Exposure_Score), 0, War_Exposure_Score)
+  )
+
+# Optionally scale the anxiety score (you can adjust or remove this step based on your needs)
+data_clean <- data_clean %>%
+  mutate(Anxiety_C = scale(Anxiety_Score, center = TRUE, scale = FALSE))
+
+war_exposure_responses1 <- Anxiety_data %>%
+  filter(Page.Counter == 4)
+
+
+# Pivot the data to wide format
+war_exposure_wide <- war_exposure_responses1 %>%
+  pivot_wider(
+    names_from = Question,
+    values_from = Response,
+    values_fill = list(Response = "No response")  # Filling missing responses if any
+  )
+
+
+
+
+
+```
+
+## Thermometer & Dehumanization Exploratory-
+
+```{r}
+Thermometer_data0 <- read.csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/thermometer_stimu.csv") 
+
+
+Thermometer_data <- Thermometer_data0 |>
+   filter(grepl("^[0-9]+$", Participant.Private.ID)) |>
+    select(
+    Participant_Private_ID = Participant.Private.ID,
+    Thermometer_Value = `Thermometer.object.4.Value`,
+    Jews_Value = `jews.object.10.Value`,
+    Arabs_Value = `arabs.object.11.Value`
+  ) |>
+   mutate(
+    Participant_Private_ID = as.character(Participant_Private_ID),  
+    Thermometer_Value = as.numeric(as.character(Thermometer_Value)),
+    Jews_Value = as.numeric(as.character(Jews_Value)),
+    Arabs_Value = as.numeric(as.character(Arabs_Value)))|>
+  mutate(Dehumanization_Value = Jews_Value - Arabs_Value)
+
+
+data_clean_Thermometer <- data_clean |>
+  left_join(Thermometer_data, by = "Participant_Private_ID")|>
+  select(-Jews_Value, -Arabs_Value)|>
+  mutate(Dehumanization_Value_C = scale(Dehumanization_Value, center = TRUE, scale = FALSE ))|>
+    mutate(Thermometer_Value_C = scale(Thermometer_Value, center = TRUE, scale = FALSE ))
+
+
+```
