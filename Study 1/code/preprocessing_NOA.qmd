@@ -32,7 +32,7 @@ colnames_spaces_to_underscore <- function(data = NULL) {
 # Loading data ----
 
 ```{r}
-main_task <- read_csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/data (10).csv", show_col_types = FALSE)
+main_task <- read_csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/real_data/data_exp_142922-v38_task-rorz.csv", show_col_types = FALSE)
 
 ```
 
@@ -129,25 +129,11 @@ main_task_pre2 <- main_task_pre1 |>
 
 ```
 
-###### Stimulating answeres:
-
-```{r}
-sim_data <- main_task_pre2 |>
-  mutate(Participant_Private_ID = c("14")) |>
-  mutate(Identity_answer = sample(c("Same", "Diff"), size = nrow(main_task_pre2), replace = T),
-         Reaction_time = sample(Reaction_time)) |>
-  mutate(Correct_Identity = case_when(Identity == Identity_answer ~ "yes",
-                                      TRUE ~ "no",
-                                      .default = NA)) |>
-  rbind(main_task_pre2)
-
-
-```
 
 ### Testing empty responses
 
 ```{r}
-test_summary <- sim_data |>
+test_summary <- main_task_pre2 |>
   group_by(Participant_Private_ID) |>
   filter(Mode == "test") |>
   summarise(wrong_answers = sum(Identity_answer == "NO ANSWER"),
@@ -158,7 +144,7 @@ ggplot(test_summary, aes(x = Participant_Private_ID, y = wrong_answers)) +
   geom_bar(stat = "identity") +
   scale_y_continuous(limits = c(0, 8), labels = seq(0, 8, 1), breaks = seq(0, 8, 1))
 
-test <- sim_data |>
+test <- main_task_pre2 |>
   group_by(Participant_Private_ID) |>
   mutate(trial_num = c(1:n()),
          Identity_answer = factor(case_when(Identity_answer == "NO ANSWER" ~ Identity_answer,
@@ -178,7 +164,7 @@ ggeffects::ggemmeans(test_glm, terms = "trial_num [all]") |>
 #### Exclusions
 
 ```{r}
-failed_participants_id <- sim_data |>
+failed_participants_id <- main_task_pre2 |>
   filter(Mode == "test") |>
   group_by(Participant_Private_ID) |>
   summarise(failed_trials = sum(Identity_answer == "NO ANSWER"),
@@ -189,7 +175,7 @@ failed_participants_id <- sim_data |>
   filter(failed_trials >= 8 | answer_same >= 36 | answer_diff >= 36 | short_rt >= 8 | long_rt >= 8)
 
 
-sim_data <- sim_data |>
+sim_data <- main_task_pre2 |>
 
   # only test trials
   filter(Mode == "test") |>
@@ -228,7 +214,7 @@ identify_outliers <- function(.data, threshold = 2.24) {
 }
 
 # Apply function per subject
-data_clean1 <- data_clean |> 
+sim_data <- sim_data |> 
   group_by(Participant_Private_ID) |>
   identify_outliers()
 
@@ -246,25 +232,7 @@ subjects_to_exclude <- outlier_summary |>
 
 ```
 
-set.seed(14)
 
-# test \<- data_participants \|\>
-
-# #mutate(is_outlier = sample(x = c(0, 1), size = nrow(data_participants), replace = T, prob = c(.8, .2))) \|\>
-
-# filter(is_outlier == 1) \|\>
-
-# group_by(Participant_Private_ID) \|\>
-
-# mutate(n_trials = n()) \|\>
-
-# mutate(bad_trials = 85\*2 - n_trials) \|\>
-
-# mutate(percent_bad_trials = n_bad_trials / (85\*2))
-
-# #filter(percent_bad_trials \<= 0.2)
-
-# library(dplyr)
 
 ```{r}
 test1 <- sim_data |>
@@ -276,6 +244,9 @@ test1 <- sim_data |>
          percent_bad_trials = bad_trials / (85 * 2))
 
 num_participants_out <- n_distinct(test1$Participant_Private_ID)
+
+
+num_participants <- n_distinct(sim_data$Participant_Private_ID)
 ```
 
 ################ Saving

@@ -396,10 +396,27 @@ anova(model1_rt_log, model2_rt_log)
 model0_rt_invGauss <- glmer(Reaction_time ~ 1 + (1 | id),
                             data = data_clean,
                             family = inverse.gaussian(link = "identity"))
+library(performance)
 
 model_parameters(model0_rt_invGauss)
 
 icc(model0_rt_invGauss)
+
+
+
+# Extract variance components from the model
+model_variance <- as.data.frame(VarCorr(model0_rt_invGauss))
+
+# Between-group variance (intercept variance for id)
+between_variance <- model_variance$vcov[1]
+
+# Within-group variance (residual variance)
+residual_variance <- attr(model_variance, "sc")^2
+
+# Calculate ICC
+icc_value <- between_variance / (between_variance + residual_variance)
+
+print(icc_value)
 ```
 
 ```{r}
@@ -512,6 +529,10 @@ anova(model1_rt_invGauss, model2_rt_invGauss)
 
 ```{r}
 model_parameters(model2_rt_invGauss) |> insight::print_html()
+
+
+model_parameters(model1_rt_invGauss) |> insight::print_html()
+
 ```
 
 Model without interaction is better.
@@ -589,6 +610,18 @@ model_maximal_rt <- glmer(Reaction_time ~ Ethnicity * identity + (1 + Ethnicity 
                           data = data_clean,
                           family = inverse.gaussian(link = "identity"),
                           control = glmerControl(optimizer = "Nelder_Mead", optCtrl = list(maxfun = 2e9)))
+
+
+
+```
+
+
+
+```{r}
+saveRDS(model_maximal_rt, file = "../models/model_maximal_rt_invGauss.rds")
+model_maximal_rt <- readRDS("../models/model_maximal_rt_invGauss.rds")
+
+model_parameters(model_maximal_rt)
 ```
 
 Therefore, proceeding without them:
@@ -855,7 +888,6 @@ plot_violin_rt
 
 ```
 
-
 ```{r}
 
 ## Load necessary libraries
@@ -914,8 +946,6 @@ print(combined_plot)
 
 
 ```
-
-
 
 ```{r}
 ggsave("../plots/glmer_plot_rt.png", plot = plot1_rt, width = 2450, height = 2100, units = "px")
@@ -1563,7 +1593,7 @@ ggsave(filename = "../plots/SDT_plot_correct_identification.png", plot = dist_pl
 Uploading-
 
 ```{r}
-treat_data <- read.csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/sim_threat.csv") |>
+treat_data <- read.csv("C:/Users/97252/Documents/GitHub/face_cater/Study 1/data/data_exp_142922-v38_task-drsy.csv") |>
   select(Participant.Private.ID, Response.Type, Response, Display, Spreadsheet..image) |>
   filter(Response.Type == "response", Display == "task") |>
   select(-Response.Type, -Display) |>
